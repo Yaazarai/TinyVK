@@ -75,7 +75,7 @@
 			inline static TinyVkInvokable<GLFWwindow*, int, int> onWindowPositionMoved;
 
 			/// <summary>GLFWwindow unique pointer constructor.</summary>
-			virtual GLFWwindow* InitiateWindow(std::string title, int width, int height, bool resizable = true, bool transparentFramebuffer = false) {
+			GLFWwindow* InitiateWindow(std::string title, int width, int height, bool resizable = true, bool transparentFramebuffer = false) {
 				glfwInit();
 				glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
 				glfwWindowHint(GLFW_RESIZABLE, (resizable) ? GLFW_TRUE : GLFW_FALSE);
@@ -148,14 +148,14 @@
 				hwndHeight = height;
 			}
 
-			/// <summary>[overridable] Checks if the GLFW window should close.</summary>
-			virtual bool ShouldClose() { return glfwWindowShouldClose(hwndWindow) == GLFW_TRUE; }
+			/// <summary>Checks if the GLFW window should close.</summary>
+			bool ShouldClose() { return glfwWindowShouldClose(hwndWindow) == GLFW_TRUE; }
 
-			/// <summary>[overridable] Returns the active GLFW window handle.</summary>
-			virtual GLFWwindow* GetHandle() { return hwndWindow; }
+			/// <summary>Returns the active GLFW window handle.</summary>
+			GLFWwindow* GetHandle() { return hwndWindow; }
 
-			/// <summary>[overridable] Returns [BOOL] should close and polls input events (optional).</summary>
-			virtual bool ShouldClosePollEvents() {
+			/// <summary>Returns [BOOL] should close and polls input events (optional).</summary>
+			bool ShouldClosePollEvents() {
 				bool shouldClose = glfwWindowShouldClose(hwndWindow) == GLFW_TRUE;
 				glfwPollEvents();
 				#ifdef TINYVK_ALLOWS_POLLING_GAMEPADS
@@ -164,8 +164,8 @@
 				return shouldClose;
 			}
 
-			/// <summary>[overridable] Returns [BOOL] should close and polls input events (optional).</summary>
-			virtual bool ShouldCloseWaitEvents() {
+			/// <summary>Returns [BOOL] should close and polls input events (optional).</summary>
+			bool ShouldCloseWaitEvents() {
 				bool shouldClose = ShouldClose();
 				glfwWaitEvents();
 				#ifdef TINYVK_ALLOWS_POLLING_GAMEPADS
@@ -174,24 +174,24 @@
 				return shouldClose;
 			}
 
-			/// <summary>[overridable] Sets the callback pointer for the window.</summary>
-			virtual void SetCallbackPointer(void* data) { glfwSetWindowUserPointer(hwndWindow, data); }
+			/// <summary>Sets the callback pointer for the window.</summary>
+			void SetCallbackPointer(void* data) { glfwSetWindowUserPointer(hwndWindow, data); }
 
-			/// <summary>[overridable] Gets the callback pointer for the window.</summary>
-			virtual void* GetCallbackPointer() { return glfwGetWindowUserPointer(hwndWindow); }
+			/// <summary>Gets the callback pointer for the window.</summary>
+			void* GetCallbackPointer() { return glfwGetWindowUserPointer(hwndWindow); }
 
-			/// <summary>[overridable] Creates a Vulkan surface for this GLFW window.</summary>
-			virtual VkSurfaceKHR CreateWindowSurface(VkInstance instance) {
+			/// <summary>Creates a Vulkan surface for this GLFW window.</summary>
+			VkSurfaceKHR CreateWindowSurface(VkInstance instance) {
 				VkSurfaceKHR wndSurface;
 				if (glfwCreateWindowSurface(instance, hwndWindow, nullptr, &wndSurface) != VK_SUCCESS)
 					throw std::runtime_error("TinyVulkan: Failed to create GLFW Window Surface!");
 				return wndSurface;
 			}
 
-			/// <summary>[overridable] Gets the GLFW window handle.</summary>
-			virtual GLFWwindow* GetWindowHandle() { return hwndWindow; }
+			/// <summary>Gets the GLFW window handle.</summary>
+			GLFWwindow* GetWindowHandle() { return hwndWindow; }
 
-			/// <summary>[overridable] Gets the required GLFW extensions.</summary>
+			/// <summary>Gets the required GLFW extensions.</summary>
 			static std::vector<const char*> QueryRequiredExtensions(bool enableValidationLayers) {
 				glfwInit();
 
@@ -205,20 +205,20 @@
 				return extensions;
 			}
 
-			/// <summary>[overridable] Returns the window's framebuffer width.</summary>
-			virtual int GetWidth() { return std::max(hwndWidth, 1); }
+			/// <summary>Returns the window's framebuffer width.</summary>
+			int GetWidth() { return std::max(hwndWidth, 1); }
 
-			/// <summary>[overridable] Returns the window's framebuffer height.</summary>
-			virtual int GetHeight() { return std::max(hwndHeight, 1); }
+			/// <summary>Returns the window's framebuffer height.</summary>
+			int GetHeight() { return std::max(hwndHeight, 1); }
 
-			virtual int GetXpos() { return hwndXpos; }
+			int GetXpos() { return hwndXpos; }
 
-			virtual int GetYpos() { return hwndYpos; }
+			int GetYpos() { return hwndYpos; }
 
 			/// <summary>Executes functions in the main window loop (w/ ref to bool to exit loop as needed).</summary>
 			TinyVkInvokable<std::atomic<bool>&> onWhileMain;
 
-			/// <summary>[overridable] Executes the main window loop.</summary>
+			/// <summary>Executes the main window loop.</summary>
 			virtual void WhileMain(const bool waitOrPollEvents = true) {
 				std::atomic<bool> shouldRun = true;
 

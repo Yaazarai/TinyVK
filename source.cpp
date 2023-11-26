@@ -68,7 +68,7 @@ int32_t TINYVULKAN_WINDOWMAIN {
         VkDescriptorBufferInfo cameraDescriptorInfo = frame.projection.GetBufferDescriptor();
         VkWriteDescriptorSet cameraDescriptor = pipeline.SelectWriteBufferDescriptor(0, 1, { &cameraDescriptorInfo });
         swapRenderer.PushDescriptorSet(commandBuffer.first, { cameraDescriptor });
-
+        
         swapRenderer.CmdBindGeometry(commandBuffer.first, &frame.vbuffer.buffer, frame.ibuffer.buffer, offsets, offsets[0]);
         swapRenderer.CmdDrawGeometry(commandBuffer.first, true, 1, 0, 6, 0, 0);
         swapRenderer.EndRecordCmdBuffer(commandBuffer.first, clearColor, depthStencil);
@@ -77,6 +77,9 @@ int32_t TINYVULKAN_WINDOWMAIN {
     }));
 
     std::thread mythread([&window, &swapRenderer]() { while (!window.ShouldClose()) { swapRenderer.RenderExecute(); } });
+    //window.onWhileMain.hook(
+    //    TinyVkCallback<std::atomic_bool&>([&window, &swapRenderer](std::atomic_bool& wait) { while (!window.ShouldClose()) { swapRenderer.RenderExecute(); } })
+    //);
     window.WhileMain(true);
     mythread.join();
     
