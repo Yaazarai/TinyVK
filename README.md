@@ -14,7 +14,8 @@ Please read the `TinyVulkan.hpp` file for compiler/linker information. Here are 
 ```
 * #define _DEBUG to enable console & validation a layers.
 * #define _RELEASE for an optimized window GUI only build.
-* You can #define TINYVULKAN_NAMESPACE to override the default [tinyvk] namespace.
+* You can #define TINYVULKAN_NAMESPACE before including TinyVulkan to override the default [tinyvk] namespace.
+* You can #define TINYVK_AUTO_PRESENT_EXTENSIONS before including TinyVulkan to force the TinyVkVulkanDevice to automatically pull present extensions from the Window.
 * The TINYVK_VALIDATION_LAYERS macros tell you true/false whether validation layers are enabled.
 * GLM forces left-handle axis--top-left is 0,0 (GLM_FORCE_LEFT_HANDED).
 * GLM forces depth range zero to one (GLM_FORCE_DEPTH_ZERO_TO_ONE).
@@ -22,6 +23,15 @@ Please read the `TinyVulkan.hpp` file for compiler/linker information. Here are 
 * #define TINYVK_ALLOWS_POLLING_GAMEPADS to make the Window check for gamepad inputs.
 * Library can be compiled with either native MSVC (Visual Studio) or clang-cl (LLVM MSVC).
 * The Vulkan SDK includes VMA by default and does not need to be imcluded separately.
+* Compile with _RELEASE and /CONSOLE (or /subsystem:console) to create a release build with console access & validation layers.
+
+* Default Validation Layers: VK_LAYER_KHRONOS_validation
+* Default Device Extensions:
+	VK_KHR_SWAPCHAIN_EXTENSION_NAME,             // Swapchain support for buffering frame images with the device driver to reduce tearing.
+	VK_KHR_CREATE_RENDERPASS_2_EXTENSION_NAME,   // Dynamic Rendering Dependency.
+	VK_KHR_DEPTH_STENCIL_RESOLVE_EXTENSION_NAME, // Dynamic Rendering Dependency.
+	VK_KHR_DYNAMIC_RENDERING_EXTENSION_NAME,     // Allows for rendering without framebuffers and render passes.
+	VK_KHR_PUSH_DESCRIPTOR_EXTENSION_NAME        // Allows for writing descriptors directly into a command buffer rather than allocating from sets / pools.
 ```
 
 * **TinyVK_TimedGuard.hpp**: provides a timeout based `std::lock_guard` called `timed_guard<bool,size_t>` implementation and functions similarily, accepting an `std::timed_mutex` and template arguments `<bool wait, size_t timeout` specifiy if the timed guard should wait on a mutex and for howlong that timeout wait should be in milliseconds. You can call `bool Acquired()` to check the acquired status of the mutex and `void Unlock()` to release the mutex.
