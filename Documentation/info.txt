@@ -1,0 +1,56 @@
+---------------------------------------------------------------------------------------------
+---------------------------------------------------------------------------------------------
+
+The compiler (clang-cl -> MSVC compatibility) and the debugger (LLD) reside in: ".\LLVM\bin"
+> Or this development environment's local LLVM\bin directory.
+
+The MSVC (MicroSoft Visual C) compiler is called with: clang-cl
+> Located at: .\LLVM\bin\clang-cl.exe
+
+LLD (linker) for linking the compiled source is called with: lld-link
+> Located at: .\LLVM\bin\lld-link.exe
+
+---------------------------------------------------------------------------------------------
+---------------------------------------------------------------------------------------------
+
+1. Double-Click the "buildtool.bat" batch to open the development environment (devenv).
+2. Set are custom PATH variables for each folder: LLVM SOURCE(CD) INCLUDES VULKAN GLFW VMA
+Which when used in command-line as %PROJECTS% for example will expand to the appropriate
+folder path for each tool/section. Change these paths to your own before compiling.
+
+---------------------------------------------------------------------------------------------
+---------------------------------------------------------------------------------------------
+
+How to compile using clang-cl (MSVC alternative):
+
+	1. Any referenced directories should be in quotes for compatibility purposes.
+	2. /I [directory] is the MSVC compiler option for include directories
+	2.1. /I "" includes the local directory where the main source file is located.
+	3. If a LIB static link is needed include the directory path at the end of the command.
+	4. Any other required linker options also go at the end of the command before the LIB paths.
+	5. Format: clang-cl [compiler-optiona] main.c [linker options] [linker directories]
+
+Example:
+	
+	clang-cl /I "" /I "%INCLUDES%/VulkanSDK/1.3.261.0/Include/" Source.c "%INCLUDES%/VulkanSDK/1.3.261.0/Lib/vulkan-1.lib"
+
+The %INCLUDES% is a variable for the buildtool.bat commandline session which holds the includes directory.
+Then clang-cl includes the VulkanSDK headers, compiles Source.c and links to vulkan-1.lib
+
+Compiler Options:
+	/Oi			Enables intrinsic functions
+	/Gy			Enable function level linking
+	/W3			warning level 3
+	/SDL			additional security development lifecycle (SDL) checks
+	/std:c++20		C++20 2021 standard conformance
+	/std:c17		C17   2018 standard conformance
+	/permissive		Enables/Disable standard conformance mode
+
+Linker Options:
+	/subsystem:console	Console based application subsystem
+	/subsystem:windows	Windows GUI based application subsystem
+	/debug			Generate debug information
+	/debug:full		Generate optimized debug information for sharing
+	/opt:ref		Eliminates functions never referenced
+	/opt:noref		Keeps functions never referenced
+	/LTCG			Enables link time code generation
