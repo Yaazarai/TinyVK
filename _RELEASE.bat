@@ -14,8 +14,7 @@ clang-cl^
  /permissive^
  /EHsc^
  /W0^
- /I "%CD%/headers/"^
-:: /I "%VMA%"^
+ /I "%CD%"^
  /I "%GLFW%/include/"^
  /I "%VULKAN%/Include/"^
  /Fe:"%CD%/x64/RELEASE/"^
@@ -26,5 +25,5 @@ clang-cl^
  shell32.lib^
  gdi32.lib^
  user32.lib^
- "%GLFW%/lib-vc2022/glfw3_mt.lib"^
+ "%GLFW%/lib-vc2022/glfw3.lib"^
  "%VULKAN%/Lib/vulkan-1.lib"^
