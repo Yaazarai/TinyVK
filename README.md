@@ -8,6 +8,34 @@ Provided however is a batch script development environment and sample `source.cp
 
 Tiny-Vulkan is a great simple renderer (with default 2D camera projection matrix) designed for rapid C++ graphics development, easily compatible with ImGUI for UI applications if needed or standalone for game development. This was not designed for large 3D Voxel rendering projects or the like complexity.
 
+### API Structure
+
+Similar to actual Vulkan in order to get a working renderer that presents to a window you create a `TinyVkWindow`, `TinyVkVulkanDevice` -> `TinyVkCommandPool` (for general buffer/image transfer commands) -> `TinyVkGraphicsPipeline` then you can create the `TinyVkSwapChainRenderer` for presenitng ot the screen. In order to create render functions/callbacks you must register render events to the `onRenderEvents` invokable event in either the `TinyVkImageRenderer` or `TinyVkSwapChainRenderer` which will provide a command pool that you can "rent," buffers from to write commands to. Any buffer rented from the provided command pool should NOT be returned to the command pool--as the renderer uses "rented," command buffers during render execution. You can rent out as many command buffers as you want, so long as you've provided a large neough pool when created your renderer. The general layout for creating render events is as follows: hook callback to onRenderEvents, callback accepts reference to command pool, in callback rent command buffers, begin recording command buffer, register render calls, end recording command buffer, then in your main while loop call `RenderExecute()` (see renderer documentation below). Here is an example, also seen below:
+```
+swapRenderer.onRenderEvents.hook(TinyVkCallback<TinyVkCommandPool&>([&angle, &window, &swapRenderer, &pipeline, &queue, &clearColor, &depthStencil, &offsets](TinyVkCommandPool& commandPool) {
+    auto frame = queue.GetFrameResource();
+
+    auto commandBuffer = commandPool.LeaseBuffer();
+    swapRenderer.BeginRecordCmdBuffer(commandBuffer.first, clearColor, depthStencil);
+    
+    int offsetx, offsety;
+    offsetx = glm::sin(glm::radians(static_cast<glm::float32>(angle))) * 64;
+    offsety = glm::cos(glm::radians(static_cast<glm::float32>(angle))) * 64;
+    glm::mat4 camera = TinyVkMath::Project2D(window.GetWidth(), window.GetHeight(), offsetx, offsety, 1.0, 0.0);
+    frame.projection.StageBufferData(&camera, sizeof(glm::mat4), 0, 0);
+    VkDescriptorBufferInfo cameraDescriptorInfo = frame.projection.GetBufferDescriptor();
+    VkWriteDescriptorSet cameraDescriptor = pipeline.SelectWriteBufferDescriptor(0, 1, { &cameraDescriptorInfo });
+    swapRenderer.PushDescriptorSet(commandBuffer.first, { cameraDescriptor });
+    
+    swapRenderer.CmdBindGeometry(commandBuffer.first, &frame.vbuffer.buffer, frame.ibuffer.buffer, offsets, offsets[0]);
+    swapRenderer.CmdDrawGeometry(commandBuffer.first, true, 1, 0, 6, 0, 0);
+    swapRenderer.EndRecordCmdBuffer(commandBuffer.first, clearColor, depthStencil);
+
+    angle += 1.25;
+}));
+```
+The `TinyVkCallback<TinyVkCommandPool&>` accepts a lambda, static or object function so long as the function matches the templated arguments of the callback, in this case `<TinyVkCommandPool&>`. You can also provide a capture list of instanced objects to use within your lambda render call. This example creates a render callback for the `TinyVkCSwapChainRenderer` that writes a UBO push descriptor of type `glm::mat4` to the shader (for camera transforms) and then binds the quad geometry buffers and finally draws the quad within the bound buffer.
+
 ## TinyVK API
 
 Please read the `TinyVulkan.hpp` file for compiler/linker information. Here are the following default options for VULKAN / VMA / GLFW / GLM:
