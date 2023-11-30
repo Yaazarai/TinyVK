@@ -368,7 +368,7 @@
 			/// <summary>Gamepad Event Trigger Axis Changed: Gamepad ID, Axis ID, Y-Axis.</summary>
 			TinyVkInvokable<TinyVkGamepads, TinyVkGamepadAxis, float_t> onGamepadTriggerChanged;
 			/// <summary>Gamepad Event Initialized (Window Startup) Connected: True/False.</summary>
-			inline static TinyVkInvokable<TinyVkGamepads> onGamepadInitializeConnection;
+			TinyVkInvokable<TinyVkGamepads> onGamepadInitializeConnection;
 			/// <summary>Gamepad Event Connected: True/False.</summary>
 			TinyVkInvokable<TinyVkGamepads, bool> onGamepadConnectionChanged;
 
