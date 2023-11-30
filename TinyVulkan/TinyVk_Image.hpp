@@ -61,7 +61,7 @@
 				createInfo.subresourceRange.baseArrayLayer = 0;
 				createInfo.subresourceRange.layerCount = 1;
 
-				if (vkCreateImageView(vkdevice.logicalDevice, &createInfo, nullptr, &imageView) != VK_SUCCESS)
+				if (vkCreateImageView(vkdevice.GetLogicalDevice(), &createInfo, nullptr, &imageView) != VK_SUCCESS)
 					throw std::runtime_error("TinyVulkan: Failed to create TinyVkImage view!");
 			}
 
@@ -76,7 +76,7 @@
 				samplerInfo.anisotropyEnable = VK_FALSE;
 				
 				VkPhysicalDeviceProperties properties{};
-				vkGetPhysicalDeviceProperties(vkdevice.physicalDevice, &properties);
+				vkGetPhysicalDeviceProperties(vkdevice.GetPhysicalDevice(), &properties);
 				samplerInfo.maxAnisotropy = properties.limits.maxSamplerAnisotropy;
 
 				samplerInfo.borderColor = VK_BORDER_COLOR_INT_OPAQUE_BLACK;
@@ -88,7 +88,7 @@
 				samplerInfo.minLod = 0.0f;
 				samplerInfo.maxLod = 0.0f;
 
-				if (vkCreateSampler(vkdevice.logicalDevice, &samplerInfo, nullptr, &imageSampler) != VK_SUCCESS)
+				if (vkCreateSampler(vkdevice.GetLogicalDevice(), &samplerInfo, nullptr, &imageSampler) != VK_SUCCESS)
 					throw std::runtime_error("TinyVulkan: Failed to create image texture sampler!");
 			}
 
@@ -100,9 +100,9 @@
 				fenceInfo.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
 				fenceInfo.flags = VK_FENCE_CREATE_SIGNALED_BIT;
 
-				if (vkCreateSemaphore(vkdevice.logicalDevice, &semaphoreInfo, nullptr, &imageAvailable) != VK_SUCCESS ||
-					vkCreateSemaphore(vkdevice.logicalDevice, &semaphoreInfo, nullptr, &imageFinished) != VK_SUCCESS ||
-					vkCreateFence(vkdevice.logicalDevice, &fenceInfo, nullptr, &imageWaitable) != VK_SUCCESS)
+				if (vkCreateSemaphore(vkdevice.GetLogicalDevice(), &semaphoreInfo, nullptr, &imageAvailable) != VK_SUCCESS ||
+					vkCreateSemaphore(vkdevice.GetLogicalDevice(), &semaphoreInfo, nullptr, &imageFinished) != VK_SUCCESS ||
+					vkCreateFence(vkdevice.GetLogicalDevice(), &fenceInfo, nullptr, &imageWaitable) != VK_SUCCESS)
 					throw std::runtime_error("TinyVulkan: Failed to create synchronization objects for a image renderer!");
 			}
 			
@@ -129,13 +129,13 @@
 			void Disposable(bool waitIdle) {
 				if (waitIdle) vkdevice.DeviceWaitIdle();
 
-				vkDestroySampler(vkdevice.logicalDevice, imageSampler, nullptr);
-				vkDestroyImageView(vkdevice.logicalDevice, imageView, nullptr);
+				vkDestroySampler(vkdevice.GetLogicalDevice(), imageSampler, nullptr);
+				vkDestroyImageView(vkdevice.GetLogicalDevice(), imageView, nullptr);
 				vmaDestroyImage(vkdevice.GetAllocator(), image, memory);
 
-				vkDestroySemaphore(vkdevice.logicalDevice, imageAvailable, nullptr);
-				vkDestroySemaphore(vkdevice.logicalDevice, imageFinished, nullptr);
-				vkDestroyFence(vkdevice.logicalDevice, imageWaitable, nullptr);
+				vkDestroySemaphore(vkdevice.GetLogicalDevice(), imageAvailable, nullptr);
+				vkDestroySemaphore(vkdevice.GetLogicalDevice(), imageFinished, nullptr);
+				vkDestroyFence(vkdevice.GetLogicalDevice(), imageWaitable, nullptr);
 			}
 
 			/// <summary>Creates a VkImage for rendering or loading image files (stagedata) into.</summary>

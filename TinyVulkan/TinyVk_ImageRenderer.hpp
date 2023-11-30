@@ -43,7 +43,7 @@
 			~TinyVkImageRenderer() { this->Dispose(); }
 
 			void Disposable(bool waitIdle) {
-				if (waitIdle) vkDeviceWaitIdle(vkdevice.logicalDevice);
+				if (waitIdle) vkDeviceWaitIdle(vkdevice.GetLogicalDevice());
 
 				commandPool->Dispose();
 				delete commandPool;
@@ -71,8 +71,8 @@
 			/// <summary>Sets the target image/texture for the TinyVkImageRenderer.</summary>
 			void SetRenderTarget(TinyVkImage* renderTarget, bool waitOldTarget = true) {
 				if (this->renderTarget != nullptr && waitOldTarget) {
-					vkWaitForFences(vkdevice.logicalDevice, 1, &renderTarget->imageWaitable, VK_TRUE, UINT64_MAX);
-					vkResetFences(vkdevice.logicalDevice, 1, &renderTarget->imageWaitable);
+					vkWaitForFences(vkdevice.GetLogicalDevice(), 1, &renderTarget->imageWaitable, VK_TRUE, UINT64_MAX);
+					vkResetFences(vkdevice.GetLogicalDevice(), 1, &renderTarget->imageWaitable);
 				}
 
 				this->renderTarget = renderTarget;
@@ -166,7 +166,7 @@
 				vkCmdSetViewport(commandBuffer, 0, 1, &dynamicViewportKHR);
 				vkCmdSetScissor(commandBuffer, 0, 1, &renderAreaKHR);
 
-				if (vkCmdBeginRenderingEKHR(vkdevice.instance, commandBuffer, &dynamicRenderInfo) != VK_SUCCESS)
+				if (vkCmdBeginRenderingEKHR(vkdevice.GetInstance(), commandBuffer, &dynamicRenderInfo) != VK_SUCCESS)
 					throw std::runtime_error("TinyVulkan: Failed to record [begin] to rendering!");
 				
 				vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, graphicsPipeline.GetGraphicsPipeline());
@@ -174,7 +174,7 @@
 
 			/// <summary>Ends recording render commands to the provided command buffer.</summary>
 			void EndRecordCmdBuffer(const VkClearValue clearColor, const VkClearValue depthStencil, VkCommandBuffer commandBuffer) {
-				if (vkCmdEndRenderingEKHR(vkdevice.instance, commandBuffer) != VK_SUCCESS)
+				if (vkCmdEndRenderingEKHR(vkdevice.GetInstance(), commandBuffer) != VK_SUCCESS)
 					throw std::runtime_error("TinyVulkan: Failed to record [end] to rendering!");
 
 				const VkImageMemoryBarrier image_memory_barrier{
@@ -223,7 +223,7 @@
 
 			/// <summary>Records Push Descriptors to the command buffer.</summary>
 			VkResult PushDescriptorSet(VkCommandBuffer cmdBuffer, std::vector<VkWriteDescriptorSet> writeDescriptorSets) {
-				return vkCmdPushDescriptorSetEKHR(vkdevice.instance, cmdBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, graphicsPipeline.GetPipelineLayout(),
+				return vkCmdPushDescriptorSetEKHR(vkdevice.GetInstance(), cmdBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, graphicsPipeline.GetPipelineLayout(),
 					0, static_cast<uint32_t>(writeDescriptorSets.size()), writeDescriptorSets.data());
 			}
 
@@ -240,8 +240,8 @@
 				if (renderTarget == nullptr)
 					throw new std::runtime_error("TinyVulkan: RenderTarget for TinyVkImageRenderer is not set [nullptr]!");
 
-				vkWaitForFences(vkdevice.logicalDevice, 1, &renderTarget->imageWaitable, VK_TRUE, UINT64_MAX);
-				vkResetFences(vkdevice.logicalDevice, 1, &renderTarget->imageWaitable);
+				vkWaitForFences(vkdevice.GetLogicalDevice(), 1, &renderTarget->imageWaitable, VK_TRUE, UINT64_MAX);
+				vkResetFences(vkdevice.GetLogicalDevice(), 1, &renderTarget->imageWaitable);
 				
 				//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 				if (graphicsPipeline.DepthTestingIsEnabled()) {
@@ -252,7 +252,7 @@
 					}
 				}
 				
-				vkResetCommandPool(vkdevice.logicalDevice, commandPool->GetPool(), 0);
+				vkResetCommandPool(vkdevice.GetLogicalDevice(), commandPool->GetPool(), 0);
 				onRenderEvents.invoke(*commandPool);
 				//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 

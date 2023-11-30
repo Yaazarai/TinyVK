@@ -218,17 +218,17 @@
 				fenceInfo.flags = VK_FENCE_CREATE_SIGNALED_BIT;
 
 				for (size_t i = 0; i < images.size(); i++) {
-					if (vkCreateSemaphore(vkdevice.logicalDevice, &semaphoreInfo, nullptr, &imageAvailableSemaphores[i]) != VK_SUCCESS ||
-						vkCreateSemaphore(vkdevice.logicalDevice, &semaphoreInfo, nullptr, &renderFinishedSemaphores[i]) != VK_SUCCESS ||
-						vkCreateFence(vkdevice.logicalDevice, &fenceInfo, nullptr, &inFlightFences[i]) != VK_SUCCESS)
+					if (vkCreateSemaphore(vkdevice.GetLogicalDevice(), &semaphoreInfo, nullptr, &imageAvailableSemaphores[i]) != VK_SUCCESS ||
+						vkCreateSemaphore(vkdevice.GetLogicalDevice(), &semaphoreInfo, nullptr, &renderFinishedSemaphores[i]) != VK_SUCCESS ||
+						vkCreateFence(vkdevice.GetLogicalDevice(), &fenceInfo, nullptr, &inFlightFences[i]) != VK_SUCCESS)
 						throw std::runtime_error("TinyVulkan: Failed to create synchronization objects for a frame!");
 				}
 			}
 
 			VkResult RendererAcquireImage() {
-				vkWaitForFences(vkdevice.logicalDevice, 1, &inFlightFences[currentSyncFrame], VK_TRUE, UINT64_MAX);
+				vkWaitForFences(vkdevice.GetLogicalDevice(), 1, &inFlightFences[currentSyncFrame], VK_TRUE, UINT64_MAX);
 				VkResult result = AcquireNextImage(imageAvailableSemaphores[currentSyncFrame], VK_NULL_HANDLE, currentSwapFrame);
-				vkResetFences(vkdevice.logicalDevice, 1, &inFlightFences[currentSyncFrame]);
+				vkResetFences(vkdevice.GetLogicalDevice(), 1, &inFlightFences[currentSyncFrame]);
 				return result;
 			}
 
@@ -337,9 +337,9 @@
 				}
 
 				for (size_t i = 0; i < inFlightFences.size(); i++) {
-					vkDestroySemaphore(vkdevice.logicalDevice, imageAvailableSemaphores[i], nullptr);
-					vkDestroySemaphore(vkdevice.logicalDevice, renderFinishedSemaphores[i], nullptr);
-					vkDestroyFence(vkdevice.logicalDevice, inFlightFences[i], nullptr);
+					vkDestroySemaphore(vkdevice.GetLogicalDevice(), imageAvailableSemaphores[i], nullptr);
+					vkDestroySemaphore(vkdevice.GetLogicalDevice(), renderFinishedSemaphores[i], nullptr);
+					vkDestroyFence(vkdevice.GetLogicalDevice(), inFlightFences[i], nullptr);
 				}
 
 				for (auto imageView : imageViews)
@@ -486,7 +486,7 @@
 				vkCmdSetViewport(commandBuffer, 0, 1, &dynamicViewportKHR);
 				vkCmdSetScissor(commandBuffer, 0, 1, &renderAreaKHR);
 
-				if (vkCmdBeginRenderingEKHR(vkdevice.instance, commandBuffer, &dynamicRenderInfo) != VK_SUCCESS)
+				if (vkCmdBeginRenderingEKHR(vkdevice.GetInstance(), commandBuffer, &dynamicRenderInfo) != VK_SUCCESS)
 					throw std::runtime_error("TinyVulkan: Failed to record [begin] to rendering!");
 				
 				vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, graphicsPipeline.GetGraphicsPipeline());
@@ -494,7 +494,7 @@
 
 			/// <summary>Ends recording render commands to the provided command buffer.</summary>
 			void EndRecordCmdBuffer(VkCommandBuffer commandBuffer, const VkClearValue clearColor, const VkClearValue depthStencil) {
-				if (vkCmdEndRenderingEKHR(vkdevice.instance, commandBuffer) != VK_SUCCESS)
+				if (vkCmdEndRenderingEKHR(vkdevice.GetInstance(), commandBuffer) != VK_SUCCESS)
 					throw std::runtime_error("TinyVulkan: Failed to record [end] to rendering!");
 
 				const VkImageMemoryBarrier swapchain_memory_barrier{
@@ -540,7 +540,7 @@
 
 			/// <summary>Records Push Descriptors to the command buffer.</summary>
 			VkResult PushDescriptorSet(VkCommandBuffer cmdBuffer, std::vector<VkWriteDescriptorSet> writeDescriptorSets) {
-				return vkCmdPushDescriptorSetEKHR(vkdevice.instance, cmdBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, graphicsPipeline.GetPipelineLayout(),
+				return vkCmdPushDescriptorSetEKHR(vkdevice.GetInstance(), cmdBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, graphicsPipeline.GetPipelineLayout(),
 					0, static_cast<uint32_t>(writeDescriptorSets.size()), writeDescriptorSets.data());
 			}
 

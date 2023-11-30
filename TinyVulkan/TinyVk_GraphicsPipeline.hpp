@@ -56,7 +56,7 @@
 				createInfo.pCode = reinterpret_cast<const uint32_t*>(shaderCode.data());
 
 				VkShaderModule shaderModule;
-				if (vkCreateShaderModule(vkdevice.logicalDevice, &createInfo, nullptr, &shaderModule) != VK_SUCCESS)
+				if (vkCreateShaderModule(vkdevice.GetLogicalDevice(), &createInfo, nullptr, &shaderModule) != VK_SUCCESS)
 					throw std::runtime_error("TinyVulkan: Failed to create shader module!");
 
 				return shaderModule;
@@ -122,14 +122,14 @@
 					descriptorCreateInfo.bindingCount = static_cast<uint32_t>(descriptorBindings.size());
 					descriptorCreateInfo.pBindings = descriptorBindings.data();
 
-					if (vkCreateDescriptorSetLayout(vkdevice.logicalDevice, &descriptorCreateInfo, nullptr, &descriptorLayout) != VK_SUCCESS)
+					if (vkCreateDescriptorSetLayout(vkdevice.GetLogicalDevice(), &descriptorCreateInfo, nullptr, &descriptorLayout) != VK_SUCCESS)
 						throw std::runtime_error("TinyVulkan: Failed to create push descriptor bindings! ");
 
 					pipelineLayoutInfo.setLayoutCount = 1;
 					pipelineLayoutInfo.pSetLayouts = &descriptorLayout;
 				}
 
-				if (vkCreatePipelineLayout(vkdevice.logicalDevice, &pipelineLayoutInfo, nullptr, &pipelineLayout) != VK_SUCCESS)
+				if (vkCreatePipelineLayout(vkdevice.GetLogicalDevice(), &pipelineLayoutInfo, nullptr, &pipelineLayout) != VK_SUCCESS)
 					throw std::runtime_error("TinyVulkan: Failed to create graphics pipeline layout!");
 				
 				///////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -229,7 +229,7 @@
 				pipelineInfo.basePipelineHandle = VK_NULL_HANDLE; // Optional
 				pipelineInfo.basePipelineIndex = -1; // Optional
 
-				if (vkCreateGraphicsPipelines(vkdevice.logicalDevice, VK_NULL_HANDLE, 1, &pipelineInfo, nullptr, &graphicsPipeline) != VK_SUCCESS)
+				if (vkCreateGraphicsPipelines(vkdevice.GetLogicalDevice(), VK_NULL_HANDLE, 1, &pipelineInfo, nullptr, &graphicsPipeline) != VK_SUCCESS)
 					throw std::runtime_error("TinyVulkan: Failed to create graphics pipeline!");
 			}
 			
@@ -241,14 +241,14 @@
 			~TinyVkGraphicsPipeline() { this->Dispose(); }
 
 			void Disposable(bool waitIdle) {
-				if (waitIdle) vkDeviceWaitIdle(vkdevice.logicalDevice);
+				if (waitIdle) vkdevice.DeviceWaitIdle();
 
-				vkDestroyDescriptorSetLayout(vkdevice.logicalDevice, descriptorLayout, nullptr);
-				vkDestroyPipeline(vkdevice.logicalDevice, graphicsPipeline, nullptr);
-				vkDestroyPipelineLayout(vkdevice.logicalDevice, pipelineLayout, nullptr);
+				vkDestroyDescriptorSetLayout(vkdevice.GetLogicalDevice(), descriptorLayout, nullptr);
+				vkDestroyPipeline(vkdevice.GetLogicalDevice(), graphicsPipeline, nullptr);
+				vkDestroyPipelineLayout(vkdevice.GetLogicalDevice(), pipelineLayout, nullptr);
 
 				for(auto shaderModule : shaderModules)
-					vkDestroyShaderModule(vkdevice.logicalDevice, shaderModule, nullptr);
+					vkDestroyShaderModule(vkdevice.GetLogicalDevice(), shaderModule, nullptr);
 			}
 
 			TinyVkGraphicsPipeline(TinyVkVulkanDevice& vkdevice, VkFormat imageFormat, TinyVkVertexDescription vertexDescription, const std::vector<std::tuple<VkShaderStageFlagBits, std::string>> shaders, const std::vector<VkDescriptorSetLayoutBinding>& descriptorBindings, const std::vector<VkPushConstantRange>& pushConstantRanges, bool enableDepthTesting, VkPipelineColorBlendAttachmentState colorBlendState = GetBlendDescription(true), VkColorComponentFlags colorComponentFlags = VKCOMP_RGBA, VkPrimitiveTopology vertexTopology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST, VkPolygonMode polgyonTopology = VK_POLYGON_MODE_FILL)
@@ -259,10 +259,10 @@
 				this->enableDepthTesting = enableDepthTesting;
 
 				TinyVkQueueFamily indices = vkdevice.FindQueueFamilies();
-				vkGetDeviceQueue(vkdevice.logicalDevice, indices.graphicsFamily.value(), 0, &graphicsQueue);
+				vkGetDeviceQueue(vkdevice.GetLogicalDevice(), indices.graphicsFamily.value(), 0, &graphicsQueue);
 				
-				if (vkdevice.presentSurface != nullptr)
-					vkGetDeviceQueue(vkdevice.logicalDevice, indices.presentFamily.value(), 0, &presentQueue);
+				if (vkdevice.GetPresentSurface() != nullptr)
+					vkGetDeviceQueue(vkdevice.GetLogicalDevice(), indices.presentFamily.value(), 0, &presentQueue);
 
 				CreateGraphicsPipeline(shaders);
 			}
@@ -281,7 +281,7 @@
 				const std::vector<VkFormat>& candidates = { VK_FORMAT_D32_SFLOAT, VK_FORMAT_D32_SFLOAT_S8_UINT, VK_FORMAT_D24_UNORM_S8_UINT };
 				for (VkFormat format : candidates) {
 					VkFormatProperties props;
-					vkGetPhysicalDeviceFormatProperties(vkdevice.physicalDevice, format, &props);
+					vkGetPhysicalDeviceFormatProperties(vkdevice.GetPhysicalDevice(), format, &props);
 
 					VkFormatFeatureFlags features = VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT;
 					if (tiling == VK_IMAGE_TILING_LINEAR && (props.linearTilingFeatures & features) == features) {
