@@ -102,7 +102,7 @@
 					propertiesB.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2;
 					vkGetPhysicalDeviceProperties2(A, &propertiesA);
 					vkGetPhysicalDeviceProperties2(B, &propertiesB);
-					return static_cast<size_t>(propertiesA.properties.deviceType) > static_cast<size_t>(propertiesB.properties.deviceType);
+					return static_cast<size_t>(propertiesA.properties.deviceType) < static_cast<size_t>(propertiesB.properties.deviceType);
 				});
 				physicalDevice = (suitableDevices.size() > 0)? suitableDevices.front() : nullptr;
 
