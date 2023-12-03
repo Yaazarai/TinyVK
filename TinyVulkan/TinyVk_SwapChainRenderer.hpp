@@ -260,10 +260,12 @@
 				submitInfo.pWaitDstStageMask = waitStages;
 				
 				std::vector<VkCommandBuffer> commandBuffers;
-				for (size_t i = 0; i < commandPools[currentSyncFrame]->rentQueue.size(); i++) {
-					if (commandPools[currentSyncFrame]->rentQueue[i] != false)
-						commandBuffers.push_back(commandPools[currentSyncFrame]->commandBuffers[i]);
-				}
+				auto buffers = commandPools[currentSyncFrame]->GetBuffers();
+				std::for_each(buffers.begin(), buffers.end(),
+					[&commandBuffers](std::pair<VkCommandBuffer, VkBool32> cmdBuffer){
+						if (cmdBuffer.second) commandBuffers.push_back(cmdBuffer.first);
+				});
+
 				submitInfo.commandBufferCount = static_cast<uint32_t>(commandBuffers.size());
 				submitInfo.pCommandBuffers = commandBuffers.data();
 

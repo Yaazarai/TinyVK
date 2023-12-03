@@ -21,28 +21,25 @@
 			}
 
 			void CreateCommandBuffers(size_t bufferCount = 1) {
-				commandBuffers.resize(bufferCount);
-				rentQueue.resize(bufferCount);
-
-				for (int32_t i = 0; i < bufferCount; i++) {
-					commandBuffers[i] = VK_NULL_HANDLE;
-					rentQueue[i] = false;
-				}
-
 				VkCommandBufferAllocateInfo allocInfo{};
 				allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
 				allocInfo.commandPool = commandPool;
 				allocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
-				allocInfo.commandBufferCount = static_cast<uint32_t>(commandBuffers.size());
+				allocInfo.commandBufferCount = static_cast<uint32_t>(bufferCount);
 
-				if (vkAllocateCommandBuffers(vkdevice.GetLogicalDevice(), &allocInfo, commandBuffers.data()) != VK_SUCCESS)
+				std::vector<VkCommandBuffer> temporary(bufferCount);
+				if (vkAllocateCommandBuffers(vkdevice.GetLogicalDevice(), &allocInfo, temporary.data()) != VK_SUCCESS)
 					throw std::runtime_error("TinyVulkan: Failed to allocate command buffers!");
+
+				auto& buffers = commandBuffers;
+				std::for_each(temporary.begin(), temporary.end(), [&buffers](VkCommandBuffer cmdBuffer) {
+					buffers.push_back(std::pair(cmdBuffer, static_cast<VkBool32>(false)));
+				});
 			}
 
 		public:
 			TinyVkVulkanDevice& vkdevice;
-			std::vector<VkCommandBuffer> commandBuffers;
-			std::vector<bool> rentQueue;
+			std::vector<std::pair<VkCommandBuffer, VkBool32>> commandBuffers;
 
 			TinyVkCommandPool operator=(const TinyVkCommandPool& cmdPool) = delete;
 
@@ -66,59 +63,53 @@
 			VkCommandPool& GetPool() { return commandPool; }
 			
 			/// <summary>Returns the underling list of VkCommandBuffers.</summary>
-			std::vector<VkCommandBuffer>& GetBuffers() { return commandBuffers; }
+			std::vector<std::pair<VkCommandBuffer, VkBool32>>& GetBuffers() { return commandBuffers; }
 			
 			/// <summary>Returns the total number of allocated VkCommandBuffers.</summary>
 			size_t GetBufferCount() { return commandBuffers.size(); }
 
-			/// <summary>Returns true/false if ANY VkCommandBuffers are available to be Lealsed.</summary>
+			/// <summary>Returns true/false if ANY VkCommandBuffers are available to be Leased.</summary>
 			bool HasBuffers() {
-				for (int32_t i = 0; i < rentQueue.size(); i++)
-					if (rentQueue[i] == false) return true;
+				for (auto& cmdBuffer : commandBuffers)
+					if (!cmdBuffer.second) return true;
 
 				return false;
 			}
 
 			/// <summary>Returns the number of available VkCommandBuffers that can be Leased.</summary>
-			int32_t HasBuffersCount() {
-				int32_t hasSum = 0;
-
-				for (int32_t i = 0; i < rentQueue.size(); i++)
-					hasSum += (rentQueue[i] == false)?1:0;
-
-				return hasSum;
+			size_t HasBuffersCount() {
+				size_t count = 0;
+				for(auto& cmdBuffer : commandBuffers)
+					count += static_cast<size_t>(!cmdBuffer.second);
+				return count;
 			}
 
 			/// <summary>Reserves a VkCommandBuffer for use and returns the VkCommandBuffer and it's ID (used for returning to the pool).</summary>
 			std::pair<VkCommandBuffer,int32_t> LeaseBuffer(bool resetCmdBuffer = false) {
-				for (int32_t i = 0; i < rentQueue.size(); i++)
-					if (rentQueue[i] == false) {
-						rentQueue[i] = true;
-						
-						if (resetCmdBuffer)
-							vkResetCommandBuffer(commandBuffers[i], 0);
-
-						return std::pair(commandBuffers[i], i);
+				size_t index = 0;
+				for(auto& cmdBuffer : commandBuffers)
+					if (!cmdBuffer.second) {
+						cmdBuffer.second = true;
+						if (resetCmdBuffer) vkResetCommandBuffer(cmdBuffer.first, 0);
+						return std::pair(cmdBuffer.first, index++);
 					}
-
+				
 				throw std::runtime_error("TinyVulkan: VKCommandPool is full and cannot lease any more VkCommandBuffers! MaxSize: " + std::to_string(bufferCount));
 				return std::pair<VkCommandBuffer,int32_t>(VK_NULL_HANDLE,-1);
 			}
 
 			/// <summary>Free's up the VkCommandBuffer that was previously rented for re-use.</summary>
 			void ReturnBuffer(std::pair<VkCommandBuffer, int32_t> bufferIndexPair) {
-				if (bufferIndexPair.second < 0 || bufferIndexPair .second >= rentQueue.size())
+				if (bufferIndexPair.second < 0 || bufferIndexPair .second >= commandBuffers.size())
 					throw std::runtime_error("TinyVulkan: Failed to return command buffer!");
 
-				rentQueue[bufferIndexPair.second] = false;
+				commandBuffers[bufferIndexPair.second].second = false;
 			}
 
 			/// <summary>Sets all of the command buffers to available--optionally resets their recorded commands.</summary>
 			void ReturnAllBuffers(bool resetCmdPool = false) {
 				if (resetCmdPool) vkResetCommandPool(vkdevice.GetLogicalDevice(), commandPool, 0);
-
-				for(size_t i = 0; i < rentQueue.size(); i++)
-					rentQueue[i] = false;
+				for(auto& cmdBuffer : commandBuffers) cmdBuffer.second = false;
 			}
 		};
 	}

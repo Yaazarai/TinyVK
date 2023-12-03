@@ -256,13 +256,15 @@
 				onRenderEvents.invoke(*commandPool);
 				//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
+				std::vector<VkCommandBuffer> commandBuffers;
+				auto buffers = commandPool->GetBuffers();
+				std::for_each(buffers.begin(), buffers.end(),
+					[&commandBuffers](std::pair<VkCommandBuffer, VkBool32> cmdBuffer){
+						if (cmdBuffer.second) commandBuffers.push_back(cmdBuffer.first);
+				});
+
 				VkSubmitInfo submitInfo{};
 				submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
-				std::vector<VkCommandBuffer> commandBuffers;
-				for (size_t i = 0; i < commandPool->rentQueue.size(); i++) {
-					if (commandPool->rentQueue[i] != false)
-						commandBuffers.push_back(commandPool->commandBuffers[i]);
-				}
 				submitInfo.commandBufferCount = static_cast<uint32_t>(commandBuffers.size());
 				submitInfo.pCommandBuffers = commandBuffers.data();
 
