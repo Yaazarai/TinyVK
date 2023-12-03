@@ -31,7 +31,7 @@
 		private:
 			std::timed_mutex swapChainMutex;
 			TinyVkSurfaceSupporter presentDetails;
-			VkSwapchainKHR swapChain = nullptr;
+			VkSwapchainKHR swapChain = VK_NULL_HANDLE;
 			VkFormat imageFormat;
 			VkExtent2D imageExtent;
 			VkImageUsageFlags imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
@@ -79,7 +79,7 @@
 				} else {
 					createInfo.imageSharingMode = VK_SHARING_MODE_EXCLUSIVE;
 					createInfo.queueFamilyIndexCount = 0; // Optional
-					createInfo.pQueueFamilyIndices = nullptr; // Optional
+					createInfo.pQueueFamilyIndices = VK_NULL_HANDLE; // Optional
 				}
 
 				createInfo.preTransform = swapChainSupport.capabilities.currentTransform;
@@ -88,10 +88,10 @@
 				createInfo.clipped = VK_TRUE;
 				createInfo.oldSwapchain = swapChain;
 
-				if (vkCreateSwapchainKHR(vkdevice.GetLogicalDevice(), &createInfo, nullptr, &swapChain) != VK_SUCCESS)
+				if (vkCreateSwapchainKHR(vkdevice.GetLogicalDevice(), &createInfo, VK_NULL_HANDLE, &swapChain) != VK_SUCCESS)
 					throw std::runtime_error("TinyVulkan: Failed to create swap chain!");
 
-				vkGetSwapchainImagesKHR(vkdevice.GetLogicalDevice(), swapChain, &imageCount, nullptr);
+				vkGetSwapchainImagesKHR(vkdevice.GetLogicalDevice(), swapChain, &imageCount, VK_NULL_HANDLE);
 				images.resize(imageCount);
 				vkGetSwapchainImagesKHR(vkdevice.GetLogicalDevice(), swapChain, &imageCount, images.data());
 
@@ -100,13 +100,13 @@
 			}
 
 			/// <summary>Create the image views for rendering to images (including those in the swap-chain).</summary>
-			void CreateSwapChainImageViews(VkImageViewCreateInfo* createInfoEx = nullptr) {
+			void CreateSwapChainImageViews(VkImageViewCreateInfo* createInfoEx = VK_NULL_HANDLE) {
 				imageViews.resize(images.size());
 
 				for (size_t i = 0; i < images.size(); i++) {
 					VkImageViewCreateInfo createInfo{};
 
-					if (createInfoEx == nullptr) {
+					if (createInfoEx == VK_NULL_HANDLE) {
 						createInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
 						createInfo.image = images[i];
 						createInfo.viewType = VK_IMAGE_VIEW_TYPE_2D;
@@ -124,7 +124,7 @@
 						createInfo.subresourceRange.layerCount = 1;
 					} else { createInfo = *createInfoEx; }
 
-					if (vkCreateImageView(vkdevice.GetLogicalDevice(), &createInfo, nullptr, &imageViews[i]) != VK_SUCCESS)
+					if (vkCreateImageView(vkdevice.GetLogicalDevice(), &createInfo, VK_NULL_HANDLE, &imageViews[i]) != VK_SUCCESS)
 						throw std::runtime_error("TinyVulkan: Failed to create swap chain image views!");
 				}
 			}
@@ -141,7 +141,7 @@
 
 				uint32_t formatCount;
 				VkSurfaceKHR windowSurface = vkdevice.GetPresentSurface();
-				vkGetPhysicalDeviceSurfaceFormatsKHR(device, windowSurface, &formatCount, nullptr);
+				vkGetPhysicalDeviceSurfaceFormatsKHR(device, windowSurface, &formatCount, VK_NULL_HANDLE);
 				vkGetPhysicalDeviceSurfaceCapabilitiesKHR(device, windowSurface, &details.capabilities);
 
 				if (formatCount > 0) {
@@ -150,7 +150,7 @@
 				}
 
 				uint32_t presentModeCount;
-				vkGetPhysicalDeviceSurfacePresentModesKHR(device, windowSurface, &presentModeCount, nullptr);
+				vkGetPhysicalDeviceSurfacePresentModesKHR(device, windowSurface, &presentModeCount, VK_NULL_HANDLE);
 
 				if (presentModeCount != 0) {
 					details.presentModes.resize(presentModeCount);
@@ -218,9 +218,9 @@
 				fenceInfo.flags = VK_FENCE_CREATE_SIGNALED_BIT;
 
 				for (size_t i = 0; i < images.size(); i++) {
-					if (vkCreateSemaphore(vkdevice.GetLogicalDevice(), &semaphoreInfo, nullptr, &imageAvailableSemaphores[i]) != VK_SUCCESS ||
-						vkCreateSemaphore(vkdevice.GetLogicalDevice(), &semaphoreInfo, nullptr, &renderFinishedSemaphores[i]) != VK_SUCCESS ||
-						vkCreateFence(vkdevice.GetLogicalDevice(), &fenceInfo, nullptr, &inFlightFences[i]) != VK_SUCCESS)
+					if (vkCreateSemaphore(vkdevice.GetLogicalDevice(), &semaphoreInfo, VK_NULL_HANDLE, &imageAvailableSemaphores[i]) != VK_SUCCESS ||
+						vkCreateSemaphore(vkdevice.GetLogicalDevice(), &semaphoreInfo, VK_NULL_HANDLE, &renderFinishedSemaphores[i]) != VK_SUCCESS ||
+						vkCreateFence(vkdevice.GetLogicalDevice(), &fenceInfo, VK_NULL_HANDLE, &inFlightFences[i]) != VK_SUCCESS)
 						throw std::runtime_error("TinyVulkan: Failed to create synchronization objects for a frame!");
 				}
 			}
@@ -337,15 +337,15 @@
 				}
 
 				for (size_t i = 0; i < inFlightFences.size(); i++) {
-					vkDestroySemaphore(vkdevice.GetLogicalDevice(), imageAvailableSemaphores[i], nullptr);
-					vkDestroySemaphore(vkdevice.GetLogicalDevice(), renderFinishedSemaphores[i], nullptr);
-					vkDestroyFence(vkdevice.GetLogicalDevice(), inFlightFences[i], nullptr);
+					vkDestroySemaphore(vkdevice.GetLogicalDevice(), imageAvailableSemaphores[i], VK_NULL_HANDLE);
+					vkDestroySemaphore(vkdevice.GetLogicalDevice(), renderFinishedSemaphores[i], VK_NULL_HANDLE);
+					vkDestroyFence(vkdevice.GetLogicalDevice(), inFlightFences[i], VK_NULL_HANDLE);
 				}
 
 				for (auto imageView : imageViews)
-					vkDestroyImageView(vkdevice.GetLogicalDevice(), imageView, nullptr);
+					vkDestroyImageView(vkdevice.GetLogicalDevice(), imageView, VK_NULL_HANDLE);
 
-				vkDestroySwapchainKHR(vkdevice.GetLogicalDevice(), swapChain, nullptr);
+				vkDestroySwapchainKHR(vkdevice.GetLogicalDevice(), swapChain, VK_NULL_HANDLE);
 			}
 
 			/// <summary>Creates a renderer specifically for performing render commands on a TinyVkSwapChain (VkSwapChain) to present to the window.</summary>
@@ -387,11 +387,11 @@
 					vkDeviceWaitIdle(vkdevice.GetLogicalDevice());
 
 					for (auto imageView : imageViews)
-						vkDestroyImageView(vkdevice.GetLogicalDevice(), imageView, nullptr);
+						vkDestroyImageView(vkdevice.GetLogicalDevice(), imageView, VK_NULL_HANDLE);
 					
 					VkSwapchainKHR oldSwapChain = swapChain;
 					CreateSwapChain(width, height);
-					vkDestroySwapchainKHR(vkdevice.GetLogicalDevice(), oldSwapChain, nullptr);
+					vkDestroySwapchainKHR(vkdevice.GetLogicalDevice(), oldSwapChain, VK_NULL_HANDLE);
 
 					presentable = true;
 					onResizeFrameBuffer.invoke(imageExtent.width, imageExtent.height);
@@ -406,7 +406,7 @@
 				VkCommandBufferBeginInfo beginInfo{};
 				beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
 				beginInfo.flags = VK_COMMAND_BUFFER_USAGE_SIMULTANEOUS_USE_BIT;
-				beginInfo.pInheritanceInfo = nullptr; // Optional
+				beginInfo.pInheritanceInfo = VK_NULL_HANDLE; // Optional
 
 				if (vkBeginCommandBuffer(commandBuffer, &beginInfo) != VK_SUCCESS)
 					throw std::runtime_error("TinyVulkan: Failed to record [begin] to command buffer!");

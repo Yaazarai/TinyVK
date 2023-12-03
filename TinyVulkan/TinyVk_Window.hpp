@@ -87,7 +87,7 @@
 				hwndResizable = resizable;
 				hwndWidth = width;
 				hwndHeight = height;
-				return glfwCreateWindow(hwndWidth, hwndHeight, title.c_str(), nullptr, nullptr);
+				return glfwCreateWindow(hwndWidth, hwndHeight, title.c_str(), VK_NULL_HANDLE, VK_NULL_HANDLE);
 			}
 
 			/// <summary>Generates an event for window framebuffer resizing.</summary>
@@ -183,7 +183,7 @@
 			/// <summary>Creates a Vulkan surface for this GLFW window.</summary>
 			VkSurfaceKHR CreateWindowSurface(VkInstance instance) {
 				VkSurfaceKHR wndSurface;
-				if (glfwCreateWindowSurface(instance, hwndWindow, nullptr, &wndSurface) != VK_SUCCESS)
+				if (glfwCreateWindowSurface(instance, hwndWindow, VK_NULL_HANDLE, &wndSurface) != VK_SUCCESS)
 					throw std::runtime_error("TinyVulkan: Failed to create GLFW Window Surface!");
 				return wndSurface;
 			}

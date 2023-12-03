@@ -16,7 +16,7 @@
 				poolInfo.flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
 				poolInfo.queueFamilyIndex = vkdevice.FindQueueFamilies().graphicsFamily.value();
 
-				if (vkCreateCommandPool(vkdevice.GetLogicalDevice(), &poolInfo, nullptr, &commandPool) != VK_SUCCESS)
+				if (vkCreateCommandPool(vkdevice.GetLogicalDevice(), &poolInfo, VK_NULL_HANDLE, &commandPool) != VK_SUCCESS)
 					throw std::runtime_error("TinyVulkan: Failed to create command pool!");
 			}
 
@@ -25,7 +25,7 @@
 				rentQueue.resize(bufferCount);
 
 				for (int32_t i = 0; i < bufferCount; i++) {
-					commandBuffers[i] = nullptr;
+					commandBuffers[i] = VK_NULL_HANDLE;
 					rentQueue[i] = false;
 				}
 
@@ -51,7 +51,7 @@
 			void Disposable(bool waitIdle) {
 				if (waitIdle) vkDeviceWaitIdle(vkdevice.GetLogicalDevice());
 
-				vkDestroyCommandPool(vkdevice.GetLogicalDevice(), commandPool, nullptr);
+				vkDestroyCommandPool(vkdevice.GetLogicalDevice(), commandPool, VK_NULL_HANDLE);
 			}
 			
 			/// <summary>Creates a command pool to lease VkCommandBuffers from for recording render commands.</summary>
@@ -102,7 +102,7 @@
 					}
 
 				throw std::runtime_error("TinyVulkan: VKCommandPool is full and cannot lease any more VkCommandBuffers! MaxSize: " + std::to_string(bufferCount));
-				return std::pair<VkCommandBuffer,int32_t>(nullptr,-1);
+				return std::pair<VkCommandBuffer,int32_t>(VK_NULL_HANDLE,-1);
 			}
 
 			/// <summary>Free's up the VkCommandBuffer that was previously rented for re-use.</summary>

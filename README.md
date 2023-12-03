@@ -174,7 +174,7 @@ VkResult PushDescriptorSet(VkCommandBuffer cmdBuffer, std::vector<VkWriteDescrip
 PushConstants(VkCommandBuffer cmdBuffer, VkShaderStageFlagBits shaderFlags, uint32_t byteSize, const void* pValues)
 
 /// <summary>Executes the registered onRenderEvents and renders them to the target image/texture.</summary>
-RenderExecute(VkCommandBuffer preRecordedCmdBuffer = nullptr /*ONly for TinyVkImageRenderer*/)
+RenderExecute(VkCommandBuffer preRecordedCmdBuffer = VK_NULL_HANDLE /*ONly for TinyVkImageRenderer*/)
 
 /// <summary>Alias call for: vkCmdBindVertexBuffers.</summary>
 CmdBindGeometry(VkCommandBuffer cmdBuffer, const VkBuffer* vertexBuffers, const VkDeviceSize* offsets, uint32_t binding = 0, uint32_t bindingCount = 1)
@@ -183,7 +183,7 @@ CmdBindGeometry(VkCommandBuffer cmdBuffer, const VkBuffer* vertexBuffers, const 
 CmdBindGeometry(VkCommandBuffer cmdBuffer, const VkBuffer indexBuffer, const VkDeviceSize indexOffset = 0, uint32_t binding = 0, uint32_t bindingCount = 1)
 
 /// <summary>Alias call for: vkCmdBindVertexBuffers2.</summary>
-CmdBindGeometry(VkCommandBuffer cmdBuffer, uint32_t firstBinding, uint32_t bindingCount, const VkBuffer* vertexBuffers, const VkDeviceSize* vbufferOffsets, const VkDeviceSize* vbufferSizes, const VkDeviceSize* vbufferStrides = nullptr)
+CmdBindGeometry(VkCommandBuffer cmdBuffer, uint32_t firstBinding, uint32_t bindingCount, const VkBuffer* vertexBuffers, const VkDeviceSize* vbufferOffsets, const VkDeviceSize* vbufferSizes, const VkDeviceSize* vbufferStrides = VK_NULL_HANDLE)
 
 /// <summary>Alias call for vkCmdDraw (isIndexed = false) and vkCmdDrawIndexed (isIndexed = true).</summary>
 CmdDrawGeometry(VkCommandBuffer cmdBuffer, bool isIndexed = false, uint32_t instanceCount = 1, uint32_t firstInstance = 0, uint32_t vertexCount = 0, uint32_t vertexOffset = 0, uint32_t firstIndex = 0)

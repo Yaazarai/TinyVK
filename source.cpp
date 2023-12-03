@@ -25,12 +25,15 @@ int32_t TINYVULKAN_WINDOWMAIN {
     VkClearValue depthStencil { .depthStencil = { 1.0f, 0 } };
     VkDeviceSize offsets[] = { 0 };
 
-    std::vector<TinyVkVertex> triangles = {
+    /*std::vector<TinyVkVertex> triangles = {
         TinyVkVertex({0.0f,0.0f}, {240.0f,135.0f,               1.0f}, {1.0f,0.0f,0.0f,1.0f}),
         TinyVkVertex({0.0f,0.0f}, {240.0f+960.0f,135.0f,        1.0f}, {0.0f,1.0f,0.0f,1.0f}),
         TinyVkVertex({0.0f,0.0f}, {240.0f+960.0f,135.0f+540.0f, 1.0f}, {1.0f,0.0f,1.0f,1.0f}),
         TinyVkVertex({0.0f,0.0f}, {240.0f,135.0f + 540.0f,      1.0f}, {0.0f,0.0f,1.0f,1.0f})
-    }; std::vector<uint32_t> indices = {0,1,2,2,3,0};
+    };*/
+    std::vector<TinyVkVertex> triangles = TinyVkQuad::CreateWithOffsetExt(glm::vec2(240.0f, 135.0f), glm::vec3(960.0f, 540.0f, 0.0f),
+        { {1.0f,0.0f,0.0f,1.0f}, {0.0f,1.0f,0.0f,1.0f}, {1.0f,0.0f,1.0f,1.0f}, {0.0f,0.0f,1.0f,1.0f} });
+    std::vector<uint32_t> indices = {0,1,2,2,3,0};
 
     TinyVkBuffer vbuffer(vkdevice, pipeline, commandPool, triangles.size() * sizeof(TinyVkVertex), TinyVkBufferType::VKVMA_BUFFER_TYPE_VERTEX);
     vbuffer.StageBufferData(triangles.data(), triangles.size() * sizeof(TinyVkVertex), 0, 0);
@@ -52,7 +55,7 @@ int32_t TINYVULKAN_WINDOWMAIN {
         TinyVkCallback<size_t&>([&swapRenderer](size_t& frameIndex){ frameIndex = swapRenderer.GetSyncronizedFrameIndex(); }),
         TinyVkCallback<SwapFrame&>([](SwapFrame& resource){})
     );
-
+    
     int angle = 0;
     swapRenderer.onRenderEvents.hook(TinyVkCallback<TinyVkCommandPool&>([&angle, &vkdevice, &window, &swapRenderer, &pipeline, &queue, &clearColor, &depthStencil, &offsets](TinyVkCommandPool& commandPool) {
         auto frame = queue.GetFrameResource();

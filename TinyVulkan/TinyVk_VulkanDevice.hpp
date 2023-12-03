@@ -104,7 +104,7 @@
 					vkGetPhysicalDeviceProperties2(B, &propertiesB);
 					return static_cast<size_t>(propertiesA.properties.deviceType) < static_cast<size_t>(propertiesB.properties.deviceType);
 				});
-				physicalDevice = (suitableDevices.size() > 0)? suitableDevices.front() : nullptr;
+				physicalDevice = (suitableDevices.size() > 0)? suitableDevices.front() : VK_NULL_HANDLE;
 
 				if (physicalDevice == VK_NULL_HANDLE)
 					throw std::runtime_error("TinyVulkan: Failed to find a suitable GPU!");

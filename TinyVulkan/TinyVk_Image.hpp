@@ -61,7 +61,7 @@
 				createInfo.subresourceRange.baseArrayLayer = 0;
 				createInfo.subresourceRange.layerCount = 1;
 
-				if (vkCreateImageView(vkdevice.GetLogicalDevice(), &createInfo, nullptr, &imageView) != VK_SUCCESS)
+				if (vkCreateImageView(vkdevice.GetLogicalDevice(), &createInfo, VK_NULL_HANDLE, &imageView) != VK_SUCCESS)
 					throw std::runtime_error("TinyVulkan: Failed to create TinyVkImage view!");
 			}
 
@@ -88,7 +88,7 @@
 				samplerInfo.minLod = 0.0f;
 				samplerInfo.maxLod = 0.0f;
 
-				if (vkCreateSampler(vkdevice.GetLogicalDevice(), &samplerInfo, nullptr, &imageSampler) != VK_SUCCESS)
+				if (vkCreateSampler(vkdevice.GetLogicalDevice(), &samplerInfo, VK_NULL_HANDLE, &imageSampler) != VK_SUCCESS)
 					throw std::runtime_error("TinyVulkan: Failed to create image texture sampler!");
 			}
 
@@ -100,9 +100,9 @@
 				fenceInfo.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
 				fenceInfo.flags = VK_FENCE_CREATE_SIGNALED_BIT;
 
-				if (vkCreateSemaphore(vkdevice.GetLogicalDevice(), &semaphoreInfo, nullptr, &imageAvailable) != VK_SUCCESS ||
-					vkCreateSemaphore(vkdevice.GetLogicalDevice(), &semaphoreInfo, nullptr, &imageFinished) != VK_SUCCESS ||
-					vkCreateFence(vkdevice.GetLogicalDevice(), &fenceInfo, nullptr, &imageWaitable) != VK_SUCCESS)
+				if (vkCreateSemaphore(vkdevice.GetLogicalDevice(), &semaphoreInfo, VK_NULL_HANDLE, &imageAvailable) != VK_SUCCESS ||
+					vkCreateSemaphore(vkdevice.GetLogicalDevice(), &semaphoreInfo, VK_NULL_HANDLE, &imageFinished) != VK_SUCCESS ||
+					vkCreateFence(vkdevice.GetLogicalDevice(), &fenceInfo, VK_NULL_HANDLE, &imageWaitable) != VK_SUCCESS)
 					throw std::runtime_error("TinyVulkan: Failed to create synchronization objects for a image renderer!");
 			}
 			
@@ -129,13 +129,13 @@
 			void Disposable(bool waitIdle) {
 				if (waitIdle) vkdevice.DeviceWaitIdle();
 
-				vkDestroySampler(vkdevice.GetLogicalDevice(), imageSampler, nullptr);
-				vkDestroyImageView(vkdevice.GetLogicalDevice(), imageView, nullptr);
+				vkDestroySampler(vkdevice.GetLogicalDevice(), imageSampler, VK_NULL_HANDLE);
+				vkDestroyImageView(vkdevice.GetLogicalDevice(), imageView, VK_NULL_HANDLE);
 				vmaDestroyImage(vkdevice.GetAllocator(), image, memory);
 
-				vkDestroySemaphore(vkdevice.GetLogicalDevice(), imageAvailable, nullptr);
-				vkDestroySemaphore(vkdevice.GetLogicalDevice(), imageFinished, nullptr);
-				vkDestroyFence(vkdevice.GetLogicalDevice(), imageWaitable, nullptr);
+				vkDestroySemaphore(vkdevice.GetLogicalDevice(), imageAvailable, VK_NULL_HANDLE);
+				vkDestroySemaphore(vkdevice.GetLogicalDevice(), imageFinished, VK_NULL_HANDLE);
+				vkDestroyFence(vkdevice.GetLogicalDevice(), imageWaitable, VK_NULL_HANDLE);
 			}
 
 			/// <summary>Creates a VkImage for rendering or loading image files (stagedata) into.</summary>
@@ -177,7 +177,7 @@
 				allocCreateInfo.flags = VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT;
 				allocCreateInfo.priority = 1.0f;
 				
-				if (vmaCreateImage(vkdevice.GetAllocator(), &imgCreateInfo, &allocCreateInfo, &image, &memory, nullptr) != VK_SUCCESS)
+				if (vmaCreateImage(vkdevice.GetAllocator(), &imgCreateInfo, &allocCreateInfo, &image, &memory, VK_NULL_HANDLE) != VK_SUCCESS)
 					throw std::runtime_error("TinyVulkan: Could not allocate GPU image data for TinyVkImage!");
 
 				CreateImageSyncObjects();
@@ -261,7 +261,7 @@
 				}
 
 				currentLayout = newLayout;
-				vkCmdPipelineBarrier(bufferIndexPair.first, sourceStage, destinationStage, 0, 0, nullptr, 0, nullptr, 1, &barrier);
+				vkCmdPipelineBarrier(bufferIndexPair.first, sourceStage, destinationStage, 0, 0, VK_NULL_HANDLE, 0, VK_NULL_HANDLE, 1, &barrier);
 
 				EndTransferCmd(bufferIndexPair);
 			}

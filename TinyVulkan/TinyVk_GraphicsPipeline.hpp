@@ -50,13 +50,13 @@
 			VkShaderModule CreateShaderModule(std::vector<char> shaderCode) {
 				VkShaderModuleCreateInfo createInfo{};
 				createInfo.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
-				createInfo.pNext = nullptr;
+				createInfo.pNext = VK_NULL_HANDLE;
 				createInfo.flags = 0;
 				createInfo.codeSize = shaderCode.size();
 				createInfo.pCode = reinterpret_cast<const uint32_t*>(shaderCode.data());
 
 				VkShaderModule shaderModule;
-				if (vkCreateShaderModule(vkdevice.GetLogicalDevice(), &createInfo, nullptr, &shaderModule) != VK_SUCCESS)
+				if (vkCreateShaderModule(vkdevice.GetLogicalDevice(), &createInfo, VK_NULL_HANDLE, &shaderModule) != VK_SUCCESS)
 					throw std::runtime_error("TinyVulkan: Failed to create shader module!");
 
 				return shaderModule;
@@ -122,14 +122,14 @@
 					descriptorCreateInfo.bindingCount = static_cast<uint32_t>(descriptorBindings.size());
 					descriptorCreateInfo.pBindings = descriptorBindings.data();
 
-					if (vkCreateDescriptorSetLayout(vkdevice.GetLogicalDevice(), &descriptorCreateInfo, nullptr, &descriptorLayout) != VK_SUCCESS)
+					if (vkCreateDescriptorSetLayout(vkdevice.GetLogicalDevice(), &descriptorCreateInfo, VK_NULL_HANDLE, &descriptorLayout) != VK_SUCCESS)
 						throw std::runtime_error("TinyVulkan: Failed to create push descriptor bindings! ");
 
 					pipelineLayoutInfo.setLayoutCount = 1;
 					pipelineLayoutInfo.pSetLayouts = &descriptorLayout;
 				}
 
-				if (vkCreatePipelineLayout(vkdevice.GetLogicalDevice(), &pipelineLayoutInfo, nullptr, &pipelineLayout) != VK_SUCCESS)
+				if (vkCreatePipelineLayout(vkdevice.GetLogicalDevice(), &pipelineLayoutInfo, VK_NULL_HANDLE, &pipelineLayout) != VK_SUCCESS)
 					throw std::runtime_error("TinyVulkan: Failed to create graphics pipeline layout!");
 				
 				///////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -178,7 +178,7 @@
 				dynamicState.flags = 0;
 				dynamicState.pDynamicStates = dynamicStateEnables.data();
 				dynamicState.dynamicStateCount = static_cast<uint32_t>(dynamicStateEnables.size());
-				dynamicState.pNext = nullptr;
+				dynamicState.pNext = VK_NULL_HANDLE;
 
 				VkPipelineRenderingCreateInfoKHR renderingCreateInfo{};
 				renderingCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_RENDERING_CREATE_INFO_KHR;
@@ -224,12 +224,12 @@
 				pipelineInfo.pNext = &renderingCreateInfo;
 
 				pipelineInfo.layout = pipelineLayout;
-				pipelineInfo.renderPass = nullptr;
+				pipelineInfo.renderPass = VK_NULL_HANDLE;
 				pipelineInfo.subpass = 0;
 				pipelineInfo.basePipelineHandle = VK_NULL_HANDLE; // Optional
 				pipelineInfo.basePipelineIndex = -1; // Optional
 
-				if (vkCreateGraphicsPipelines(vkdevice.GetLogicalDevice(), VK_NULL_HANDLE, 1, &pipelineInfo, nullptr, &graphicsPipeline) != VK_SUCCESS)
+				if (vkCreateGraphicsPipelines(vkdevice.GetLogicalDevice(), VK_NULL_HANDLE, 1, &pipelineInfo, VK_NULL_HANDLE, &graphicsPipeline) != VK_SUCCESS)
 					throw std::runtime_error("TinyVulkan: Failed to create graphics pipeline!");
 			}
 			
@@ -243,12 +243,12 @@
 			void Disposable(bool waitIdle) {
 				if (waitIdle) vkdevice.DeviceWaitIdle();
 
-				vkDestroyDescriptorSetLayout(vkdevice.GetLogicalDevice(), descriptorLayout, nullptr);
-				vkDestroyPipeline(vkdevice.GetLogicalDevice(), graphicsPipeline, nullptr);
-				vkDestroyPipelineLayout(vkdevice.GetLogicalDevice(), pipelineLayout, nullptr);
+				vkDestroyDescriptorSetLayout(vkdevice.GetLogicalDevice(), descriptorLayout, VK_NULL_HANDLE);
+				vkDestroyPipeline(vkdevice.GetLogicalDevice(), graphicsPipeline, VK_NULL_HANDLE);
+				vkDestroyPipelineLayout(vkdevice.GetLogicalDevice(), pipelineLayout, VK_NULL_HANDLE);
 
 				for(auto shaderModule : shaderModules)
-					vkDestroyShaderModule(vkdevice.GetLogicalDevice(), shaderModule, nullptr);
+					vkDestroyShaderModule(vkdevice.GetLogicalDevice(), shaderModule, VK_NULL_HANDLE);
 			}
 
 			TinyVkGraphicsPipeline(TinyVkVulkanDevice& vkdevice, VkFormat imageFormat, TinyVkVertexDescription vertexDescription, const std::vector<std::tuple<VkShaderStageFlagBits, std::string>> shaders, const std::vector<VkDescriptorSetLayoutBinding>& descriptorBindings, const std::vector<VkPushConstantRange>& pushConstantRanges, bool enableDepthTesting, VkPipelineColorBlendAttachmentState colorBlendState = GetBlendDescription(true), VkColorComponentFlags colorComponentFlags = VKCOMP_RGBA, VkPrimitiveTopology vertexTopology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST, VkPolygonMode polgyonTopology = VK_POLYGON_MODE_FILL)
@@ -261,7 +261,7 @@
 				TinyVkQueueFamily indices = vkdevice.FindQueueFamilies();
 				vkGetDeviceQueue(vkdevice.GetLogicalDevice(), indices.graphicsFamily.value(), 0, &graphicsQueue);
 				
-				if (vkdevice.GetPresentSurface() != nullptr)
+				if (vkdevice.GetPresentSurface() != VK_NULL_HANDLE)
 					vkGetDeviceQueue(vkdevice.GetLogicalDevice(), indices.presentFamily.value(), 0, &presentQueue);
 
 				CreateGraphicsPipeline(shaders);
@@ -331,7 +331,7 @@
 				descriptorLayoutBinding.binding = binding;
 				descriptorLayoutBinding.descriptorCount = descriptorCount;
 				descriptorLayoutBinding.descriptorType = descriptorType;
-				descriptorLayoutBinding.pImmutableSamplers = nullptr;
+				descriptorLayoutBinding.pImmutableSamplers = VK_NULL_HANDLE;
 				descriptorLayoutBinding.stageFlags = stageFlags;
 				return descriptorLayoutBinding;
 			}
@@ -379,7 +379,7 @@
 				descriptorLayoutBinding.binding = binding;
 				descriptorLayoutBinding.descriptorCount = descriptorCount;
 				descriptorLayoutBinding.descriptorType = static_cast<VkDescriptorType>(descriptorType);
-				descriptorLayoutBinding.pImmutableSamplers = nullptr;
+				descriptorLayoutBinding.pImmutableSamplers = VK_NULL_HANDLE;
 				descriptorLayoutBinding.stageFlags = stageFlags;
 				return descriptorLayoutBinding;
 			}

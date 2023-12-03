@@ -61,7 +61,7 @@
 
 				commandPool = new TinyVkCommandPool(vkdevice, cmdpoolbuffercount + 1);
 
-				optionalDepthImage = nullptr;
+				optionalDepthImage = VK_NULL_HANDLE;
 				if (graphicsPipeline.DepthTestingIsEnabled())
 					optionalDepthImage = new TinyVkImage(vkdevice, graphicsPipeline, *commandPool, renderTarget->width, renderTarget->height, true, graphicsPipeline.QueryDepthFormat(), TINYVK_DEPTHSTENCIL_ATTACHMENT_OPTIMAL, VK_SAMPLER_ADDRESS_MODE_REPEAT, VK_IMAGE_ASPECT_DEPTH_BIT);
 			}
@@ -70,7 +70,7 @@
 
 			/// <summary>Sets the target image/texture for the TinyVkImageRenderer.</summary>
 			void SetRenderTarget(TinyVkImage* renderTarget, bool waitOldTarget = true) {
-				if (this->renderTarget != nullptr && waitOldTarget) {
+				if (this->renderTarget != VK_NULL_HANDLE && waitOldTarget) {
 					vkWaitForFences(vkdevice.GetLogicalDevice(), 1, &renderTarget->imageWaitable, VK_TRUE, UINT64_MAX);
 					vkResetFences(vkdevice.GetLogicalDevice(), 1, &renderTarget->imageWaitable);
 				}
@@ -83,7 +83,7 @@
 				VkCommandBufferBeginInfo beginInfo{};
 				beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
 				beginInfo.flags = VK_COMMAND_BUFFER_USAGE_SIMULTANEOUS_USE_BIT;
-				beginInfo.pInheritanceInfo = nullptr; // Optional
+				beginInfo.pInheritanceInfo = VK_NULL_HANDLE; // Optional
 
 				if (vkBeginCommandBuffer(commandBuffer, &beginInfo) != VK_SUCCESS)
 					throw std::runtime_error("TinyVulkan: Failed to record [begin] to command buffer!");
@@ -233,12 +233,12 @@
 			}
 			
 			/// <summary>Executes the registered onRenderEvents and renders them to the target image/texture.</summary>
-			void RenderExecute(VkCommandBuffer preRecordedCmdBuffer = nullptr) {
+			void RenderExecute(VkCommandBuffer preRecordedCmdBuffer = VK_NULL_HANDLE) {
 				timed_guard imageLock(renderTarget->image_lock);
 				if (!imageLock.Acquired()) return;
 				
-				if (renderTarget == nullptr)
-					throw new std::runtime_error("TinyVulkan: RenderTarget for TinyVkImageRenderer is not set [nullptr]!");
+				if (renderTarget == VK_NULL_HANDLE)
+					throw new std::runtime_error("TinyVulkan: RenderTarget for TinyVkImageRenderer is not set [VK_NULL_HANDLE]!");
 
 				vkWaitForFences(vkdevice.GetLogicalDevice(), 1, &renderTarget->imageWaitable, VK_TRUE, UINT64_MAX);
 				vkResetFences(vkdevice.GetLogicalDevice(), 1, &renderTarget->imageWaitable);
