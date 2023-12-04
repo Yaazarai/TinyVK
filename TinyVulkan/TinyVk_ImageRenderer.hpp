@@ -32,10 +32,10 @@
 			TinyVkImage* optionalDepthImage;
 			TinyVkImage* renderTarget;
 			TinyVkCommandPool* commandPool;
+			TinyVkGraphicsPipeline* graphicsPipeline;
 
 		public:
 			TinyVkVulkanDevice& vkdevice;
-			TinyVkGraphicsPipeline& graphicsPipeline;
 
 			/// Invokable Render Events: (executed in TinyVkImageRenderer::RenderExecute()
 			TinyVkInvokable<TinyVkCommandPool&> onRenderEvents;
@@ -48,7 +48,7 @@
 				commandPool->Dispose();
 				delete commandPool;
 
-				if (graphicsPipeline.DepthTestingIsEnabled()) {
+				if (graphicsPipeline->DepthTestingIsEnabled()) {
 					optionalDepthImage->Dispose();
 					delete optionalDepthImage;
 				}
@@ -56,14 +56,14 @@
 
 			/// <summary>Creates a headless renderer specifically for performing render commands on a TinyVkImage (VkImage).</summary>
 			TinyVkImageRenderer(TinyVkVulkanDevice& vkdevice, TinyVkImage* renderTarget, TinyVkGraphicsPipeline& graphicsPipeline, size_t cmdpoolbuffercount = 32ULL)
-			: vkdevice(vkdevice), graphicsPipeline(graphicsPipeline), renderTarget(renderTarget) {
+			: vkdevice(vkdevice), graphicsPipeline(&graphicsPipeline), renderTarget(renderTarget) {
 				onDispose.hook(TinyVkCallback<bool>([this](bool forceDispose) {this->Disposable(forceDispose); }));
 
 				commandPool = new TinyVkCommandPool(vkdevice, cmdpoolbuffercount + 1);
 
 				optionalDepthImage = VK_NULL_HANDLE;
-				if (graphicsPipeline.DepthTestingIsEnabled())
-					optionalDepthImage = new TinyVkImage(vkdevice, graphicsPipeline, *commandPool, renderTarget->width, renderTarget->height, true, graphicsPipeline.QueryDepthFormat(), TINYVK_DEPTHSTENCIL_ATTACHMENT_OPTIMAL, VK_SAMPLER_ADDRESS_MODE_REPEAT, VK_IMAGE_ASPECT_DEPTH_BIT);
+				if (this->graphicsPipeline->DepthTestingIsEnabled())
+					optionalDepthImage = new TinyVkImage(vkdevice, graphicsPipeline, *commandPool, renderTarget->width, renderTarget->height, true, this->graphicsPipeline->QueryDepthFormat(), TINYVK_DEPTHSTENCIL_ATTACHMENT_OPTIMAL, VK_SAMPLER_ADDRESS_MODE_REPEAT, VK_IMAGE_ASPECT_DEPTH_BIT);
 			}
 
 			TinyVkImageRenderer operator=(const TinyVkImageRenderer& imageRenderer) = delete;
@@ -76,6 +76,12 @@
 				}
 
 				this->renderTarget = renderTarget;
+			}
+
+			/// <summary>Wait for the previous pipeline to finish rendering, then sets a new pipeline..</summary>
+			void SetGraphicsPipeline(TinyVkGraphicsPipeline& pipeline) {
+				vkdevice.DeviceWaitIdle();
+				graphicsPipeline = &pipeline;
 			}
 
 			/// <summary>Begins recording render commands to the provided command buffer.</summary>
@@ -127,7 +133,7 @@
 				dynamicRenderInfo.pColorAttachments = &colorAttachmentInfo;
 
 				VkRenderingAttachmentInfoKHR depthStencilAttachmentInfo{};
-				if (graphicsPipeline.DepthTestingIsEnabled()) {
+				if (graphicsPipeline->DepthTestingIsEnabled()) {
 					const VkImageMemoryBarrier depth_memory_barrier{
 						.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
 						.dstAccessMask = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT,
@@ -169,7 +175,7 @@
 				if (vkCmdBeginRenderingEKHR(vkdevice.GetInstance(), commandBuffer, &dynamicRenderInfo) != VK_SUCCESS)
 					throw std::runtime_error("TinyVulkan: Failed to record [begin] to rendering!");
 				
-				vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, graphicsPipeline.GetGraphicsPipeline());
+				vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, graphicsPipeline->GetGraphicsPipeline());
 			}
 
 			/// <summary>Ends recording render commands to the provided command buffer.</summary>
@@ -196,7 +202,7 @@
 
 				vkCmdPipelineBarrier(commandBuffer, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, 0, 0, VK_NULL_HANDLE, 0, VK_NULL_HANDLE, 1, &image_memory_barrier);
 
-				if (graphicsPipeline.DepthTestingIsEnabled()) {
+				if (graphicsPipeline->DepthTestingIsEnabled()) {
 					const VkImageMemoryBarrier depth_memory_barrier{
 						.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
 						.dstAccessMask = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT,
@@ -223,13 +229,13 @@
 
 			/// <summary>Records Push Descriptors to the command buffer.</summary>
 			VkResult PushDescriptorSet(VkCommandBuffer cmdBuffer, std::vector<VkWriteDescriptorSet> writeDescriptorSets) {
-				return vkCmdPushDescriptorSetEKHR(vkdevice.GetInstance(), cmdBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, graphicsPipeline.GetPipelineLayout(),
+				return vkCmdPushDescriptorSetEKHR(vkdevice.GetInstance(), cmdBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, graphicsPipeline->GetPipelineLayout(),
 					0, static_cast<uint32_t>(writeDescriptorSets.size()), writeDescriptorSets.data());
 			}
 
 			/// <summary>Records Push Constants to the command buffer.</summary>
 			void PushConstants(VkCommandBuffer cmdBuffer, VkShaderStageFlagBits shaderFlags, uint32_t byteSize, const void* pValues) {
-				vkCmdPushConstants(cmdBuffer, graphicsPipeline.GetPipelineLayout(), VK_SHADER_STAGE_VERTEX_BIT, 0, byteSize, pValues);
+				vkCmdPushConstants(cmdBuffer, graphicsPipeline->GetPipelineLayout(), VK_SHADER_STAGE_VERTEX_BIT, 0, byteSize, pValues);
 			}
 			
 			/// <summary>Executes the registered onRenderEvents and renders them to the target image/texture.</summary>
@@ -244,11 +250,11 @@
 				vkResetFences(vkdevice.GetLogicalDevice(), 1, &renderTarget->imageWaitable);
 				
 				//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-				if (graphicsPipeline.DepthTestingIsEnabled()) {
+				if (graphicsPipeline->DepthTestingIsEnabled()) {
 					TinyVkImage* depthImage = optionalDepthImage;
 					if (depthImage->width != renderTarget->width || depthImage->height != renderTarget->height) {
 						depthImage->Disposable(false);
-						depthImage->ReCreateImage(renderTarget->width, renderTarget->height, depthImage->isDepthImage, graphicsPipeline.QueryDepthFormat(), TINYVK_DEPTHSTENCIL_ATTACHMENT_OPTIMAL, VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE, VK_IMAGE_ASPECT_DEPTH_BIT);
+						depthImage->ReCreateImage(renderTarget->width, renderTarget->height, depthImage->isDepthImage, graphicsPipeline->QueryDepthFormat(), TINYVK_DEPTHSTENCIL_ATTACHMENT_OPTIMAL, VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE, VK_IMAGE_ASPECT_DEPTH_BIT);
 					}
 				}
 				
@@ -268,7 +274,7 @@
 				submitInfo.commandBufferCount = static_cast<uint32_t>(commandBuffers.size());
 				submitInfo.pCommandBuffers = commandBuffers.data();
 
-				if (vkQueueSubmit(graphicsPipeline.GetGraphicsQueue(), 1, &submitInfo, renderTarget->imageWaitable) != VK_SUCCESS)
+				if (vkQueueSubmit(graphicsPipeline->GetGraphicsQueue(), 1, &submitInfo, renderTarget->imageWaitable) != VK_SUCCESS)
 					throw std::runtime_error("TinyVulkan: Failed to submit draw command buffer!");
 			}
 		};
