@@ -28,7 +28,6 @@
 			VkDescriptorSetLayout descriptorLayout;
 			std::vector<VkDescriptorSetLayoutBinding> descriptorBindings;
 			std::vector<VkPushConstantRange> pushConstantRanges;
-			std::vector<VkShaderModule> shaderModules;
 
 			VkPipelineDynamicStateCreateInfo dynamicState;
 			VkPipelineLayout pipelineLayout;
@@ -200,18 +199,41 @@
 
 				///////////////////////////////////////////////////////////////////////////////////////////////////////
 				///////////////////////////////////////////////////////////////////////////////////////////////////////
-				std::vector<VkPipelineShaderStageCreateInfo> shaderCreateInfo;
-				for (size_t i = 0; i < shaders.size(); i++) {
-					auto shaderCode = ReadFile(std::get<1>(shaders[i]));
-					auto shaderModule = CreateShaderModule(shaderCode);
-					shaderModules.push_back(shaderModule);
-					shaderCreateInfo.push_back(CreateShaderInfo(std::get<1>(shaders[i]), shaderModule, std::get<0>(shaders[i])));
+				std::vector<VkPipelineShaderStageCreateInfo> shaderPipelineCreateInfo;
+				std::vector<VkShaderModule> shaderModules;
+				auto extensions = vkdevice.GetDeviceExtensions();
+				if (std::find_if(extensions.begin(), extensions.end(), [](std::string A) { return A.compare(VK_KHR_MAINTENANCE_5_EXTENSION_NAME) == 0; }) != extensions.end()) {
+					for (size_t i = 0; i < shaders.size(); i++) {
+						VkShaderModuleCreateInfo shaderCreateInfo{};
+						shaderCreateInfo.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
+						auto shaderCode = ReadFile(std::get<1>(shaders[i]));
+						shaderCreateInfo.codeSize = shaderCode.size();
+						shaderCreateInfo.pCode = reinterpret_cast<const uint32_t*>(shaderCode.data());
+
+						VkPipelineShaderStageCreateInfo shaderStagePipelineInfo{};
+						shaderStagePipelineInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+						shaderStagePipelineInfo.stage = std::get<0>(shaders[i]);
+						shaderStagePipelineInfo.pName = "main";
+						shaderStagePipelineInfo.pNext = &shaderCreateInfo;
+						shaderPipelineCreateInfo.push_back(shaderStagePipelineInfo);
+
+						#if TVK_VALIDATION_LAYERS
+						std::cout << "TinyVulkan: Loading Shader @ " << std::get<1>(shaders[i]) << std::endl;
+						#endif
+					}
+				} else {
+					for (size_t i = 0; i < shaders.size(); i++) {
+						auto shaderCode = ReadFile(std::get<1>(shaders[i]));
+						auto shaderModule = CreateShaderModule(shaderCode);
+						shaderModules.push_back(shaderModule);
+						shaderPipelineCreateInfo.push_back(CreateShaderInfo(std::get<1>(shaders[i]), shaderModule, std::get<0>(shaders[i])));
+					}
 				}
 				
 				VkGraphicsPipelineCreateInfo pipelineInfo{};
 				pipelineInfo.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
-				pipelineInfo.stageCount = static_cast<uint32_t>(shaderCreateInfo.size());
-				pipelineInfo.pStages = shaderCreateInfo.data();
+				pipelineInfo.stageCount = static_cast<uint32_t>(shaderPipelineCreateInfo.size());
+				pipelineInfo.pStages = shaderPipelineCreateInfo.data();
 				pipelineInfo.pVertexInputState = &vertexInputInfo;
 				pipelineInfo.pInputAssemblyState = &inputAssembly;
 				pipelineInfo.pViewportState = &viewportState;
@@ -231,6 +253,9 @@
 
 				if (vkCreateGraphicsPipelines(vkdevice.GetLogicalDevice(), VK_NULL_HANDLE, 1, &pipelineInfo, VK_NULL_HANDLE, &graphicsPipeline) != VK_SUCCESS)
 					throw std::runtime_error("TinyVulkan: Failed to create graphics pipeline!");
+				
+				for(auto shaderModule : shaderModules)
+					vkDestroyShaderModule(vkdevice.GetLogicalDevice(), shaderModule, VK_NULL_HANDLE);
 			}
 			
 		public:
@@ -246,9 +271,6 @@
 				vkDestroyDescriptorSetLayout(vkdevice.GetLogicalDevice(), descriptorLayout, VK_NULL_HANDLE);
 				vkDestroyPipeline(vkdevice.GetLogicalDevice(), graphicsPipeline, VK_NULL_HANDLE);
 				vkDestroyPipelineLayout(vkdevice.GetLogicalDevice(), pipelineLayout, VK_NULL_HANDLE);
-
-				for(auto shaderModule : shaderModules)
-					vkDestroyShaderModule(vkdevice.GetLogicalDevice(), shaderModule, VK_NULL_HANDLE);
 			}
 
 			TinyVkGraphicsPipeline(TinyVkVulkanDevice& vkdevice, TinyVkVertexDescription vertexDescription, const std::vector<std::tuple<VkShaderStageFlagBits, std::string>> shaders, const std::vector<VkDescriptorSetLayoutBinding>& descriptorBindings, const std::vector<VkPushConstantRange>& pushConstantRanges, bool enableDepthTesting, VkFormat imageFormat = VK_FORMAT_B8G8R8A8_UNORM, VkColorComponentFlags colorComponentFlags = VKCOMP_RGBA, VkPipelineColorBlendAttachmentState colorBlendState = GetBlendDescription(true), VkPrimitiveTopology vertexTopology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST, VkPolygonMode polgyonTopology = VK_POLYGON_MODE_FILL)

@@ -28,7 +28,14 @@
 		private:
 			const std::vector<const char*> validationLayers = { VK_VALIDATION_LAYER_KHRONOS_EXTENSION_NAME };
 			const std::vector<const char*> instanceExtensions = {  };
-			const std::vector<const char*> deviceExtensions = { VK_KHR_SWAPCHAIN_EXTENSION_NAME, VK_KHR_CREATE_RENDERPASS_2_EXTENSION_NAME, VK_KHR_DEPTH_STENCIL_RESOLVE_EXTENSION_NAME, VK_KHR_DYNAMIC_RENDERING_EXTENSION_NAME, VK_KHR_PUSH_DESCRIPTOR_EXTENSION_NAME };
+			const std::vector<const char*> deviceExtensions = {
+				VK_KHR_SWAPCHAIN_EXTENSION_NAME,
+				VK_KHR_CREATE_RENDERPASS_2_EXTENSION_NAME,
+				VK_KHR_DEPTH_STENCIL_RESOLVE_EXTENSION_NAME,
+				VK_KHR_DYNAMIC_RENDERING_EXTENSION_NAME,
+				VK_KHR_PUSH_DESCRIPTOR_EXTENSION_NAME,
+				// VK_KHR_MAINTENANCE_5_EXTENSION_NAME (commented out until maintenance5 is out of driver beta)
+			};
 			const std::vector<VkPhysicalDeviceType> deviceTypes;
 			VkPhysicalDeviceFeatures deviceFeatures = {};
 			std::vector<const char*> presentExtensionNames;
@@ -222,6 +229,7 @@
 			VkSurfaceKHR GetPresentSurface() { return presentSurface; }
 			VmaAllocator GetAllocator() { return memoryAllocator; }
 			VkApplicationInfo GetAppInfo() { return appInfo; }
+			const std::vector<const char*> GetDeviceExtensions() { return deviceExtensions; }
 
 			#pragma endregion
 			#pragma region VULKAN_VALIDATION_LAYERS
