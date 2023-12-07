@@ -43,7 +43,6 @@ Please read the `TinyVulkan.hpp` file for compiler/linker information. Here are 
 * #define _DEBUG to enable console & validation a layers.
 * #define _RELEASE for an optimized window GUI only build.
 * You can #define TINYVULKAN_NAMESPACE before including TinyVulkan to override the default [tinyvk] namespace.
-* You can #define TINYVK_AUTO_PRESENT_EXTENSIONS before including TinyVulkan to force the TinyVkVulkanDevice to automatically pull present extensions from the Window.
 * The TINYVK_VALIDATION_LAYERS macros tell you true/false whether validation layers are enabled.
 * GLM forces left-handle axis--top-left is 0,0 (GLM_FORCE_LEFT_HANDED).
 * GLM forces depth range zero to one (GLM_FORCE_DEPTH_ZERO_TO_ONE).

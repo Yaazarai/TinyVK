@@ -204,14 +204,8 @@
 
 				CreateVkInstance(title);
 
-				if (window != VK_NULL_HANDLE) {
+				if (window != VK_NULL_HANDLE)
 					presentSurface = window->CreateWindowSurface(instance);
-
-					#ifdef TINYVK_AUTO_PRESENT_EXTENSIONS
-					for (auto str : TinyVkWindow::QueryRequiredExtensions(TVK_VALIDATION_LAYERS))
-						this->presentExtensionNames.push_back(str);
-					#endif
-				}
 
 				vkCmdRenderingGetCallbacks(instance);
 				QueryPhysicalDevice();
