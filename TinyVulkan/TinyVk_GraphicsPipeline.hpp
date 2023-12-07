@@ -251,7 +251,7 @@
 					vkDestroyShaderModule(vkdevice.GetLogicalDevice(), shaderModule, VK_NULL_HANDLE);
 			}
 
-			TinyVkGraphicsPipeline(TinyVkVulkanDevice& vkdevice, VkFormat imageFormat, TinyVkVertexDescription vertexDescription, const std::vector<std::tuple<VkShaderStageFlagBits, std::string>> shaders, const std::vector<VkDescriptorSetLayoutBinding>& descriptorBindings, const std::vector<VkPushConstantRange>& pushConstantRanges, bool enableDepthTesting, VkPipelineColorBlendAttachmentState colorBlendState = GetBlendDescription(true), VkColorComponentFlags colorComponentFlags = VKCOMP_RGBA, VkPrimitiveTopology vertexTopology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST, VkPolygonMode polgyonTopology = VK_POLYGON_MODE_FILL)
+			TinyVkGraphicsPipeline(TinyVkVulkanDevice& vkdevice, TinyVkVertexDescription vertexDescription, const std::vector<std::tuple<VkShaderStageFlagBits, std::string>> shaders, const std::vector<VkDescriptorSetLayoutBinding>& descriptorBindings, const std::vector<VkPushConstantRange>& pushConstantRanges, bool enableDepthTesting, VkFormat imageFormat = VK_FORMAT_B8G8R8A8_UNORM, VkColorComponentFlags colorComponentFlags = VKCOMP_RGBA, VkPipelineColorBlendAttachmentState colorBlendState = GetBlendDescription(true), VkPrimitiveTopology vertexTopology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST, VkPolygonMode polgyonTopology = VK_POLYGON_MODE_FILL)
 			: vkdevice(vkdevice), imageFormat(imageFormat), vertexDescription(vertexDescription), descriptorBindings(descriptorBindings), pushConstantRanges(pushConstantRanges), colorComponentFlags(colorComponentFlags), colorBlendState(colorBlendState), vertexTopology(vertexTopology), polgyonTopology(polgyonTopology) {
 				onDispose.hook(TinyVkCallback<bool>([this](bool forceDispose) {this->Disposable(forceDispose); }));
 

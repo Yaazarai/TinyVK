@@ -85,7 +85,7 @@
 			}
 
 			/// <summary>Begins recording render commands to the provided command buffer.</summary>
-			void BeginRecordCmdBuffer(const VkClearValue clearColor, const VkClearValue depthStencil, VkCommandBuffer commandBuffer) {
+			void BeginRecordCmdBuffer(VkCommandBuffer commandBuffer, const VkClearValue clearColor = { 0.0f, 0.0f, 0.0f, 1.0f }, const VkClearValue depthStencil = { .depthStencil = { 1.0f, 0 } }) {
 				VkCommandBufferBeginInfo beginInfo{};
 				beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
 				beginInfo.flags = VK_COMMAND_BUFFER_USAGE_SIMULTANEOUS_USE_BIT;
@@ -179,7 +179,7 @@
 			}
 
 			/// <summary>Ends recording render commands to the provided command buffer.</summary>
-			void EndRecordCmdBuffer(const VkClearValue clearColor, const VkClearValue depthStencil, VkCommandBuffer commandBuffer) {
+			void EndRecordCmdBuffer(VkCommandBuffer commandBuffer, const VkClearValue clearColor = { 0.0f, 0.0f, 0.0f, 1.0f }, const VkClearValue depthStencil = { .depthStencil = { 1.0f, 0 } }) {
 				if (vkCmdEndRenderingEKHR(vkdevice.GetInstance(), commandBuffer) != VK_SUCCESS)
 					throw std::runtime_error("TinyVulkan: Failed to record [end] to rendering!");
 

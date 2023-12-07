@@ -16,23 +16,15 @@ const std::vector<VkDescriptorSetLayoutBinding> pushDescriptorLayouts = { TinyVk
 
 int32_t TINYVULKAN_WINDOWMAIN {
     TinyVkWindow window("Sample Application", 1440, 810, true, false);
-    TinyVkVulkanDevice vkdevice("Sample Application", { VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU }, &window, window.QueryRequiredExtensions(TINYVK_VALIDATION_LAYERS));
+    TinyVkVulkanDevice vkdevice("Sample Application", rdeviceTypes, &window, window.QueryRequiredExtensions(TINYVK_VALIDATION_LAYERS));
     TinyVkCommandPool commandPool(vkdevice, DEFAULT_COMMAND_POOLSIZE);
-    TinyVkGraphicsPipeline pipeline(vkdevice, VK_FORMAT_B8G8R8A8_UNORM, vertexDescription, defaultShaders, pushDescriptorLayouts, {}, false);
+    TinyVkGraphicsPipeline pipeline(vkdevice, vertexDescription, defaultShaders, pushDescriptorLayouts, {}, false);
     TinyVkSwapChainRenderer swapRenderer(vkdevice, window, pipeline, bufferingMode);
     
-    VkClearValue clearColor { .color = { 0.0, 0.0, 0.0, 0.5f } };
-    VkClearValue depthStencil { .depthStencil = { 1.0f, 0 } };
-    VkDeviceSize offsets[] = { 0 };
+    //VkClearValue clearColor { .color = { 0.0, 0.0, 0.0, 1.0f } };
+    //VkClearValue depthStencil { .depthStencil = { 1.0f, 0 } };
 
-    /*std::vector<TinyVkVertex> triangles = {
-        TinyVkVertex({0.0f,0.0f}, {240.0f,135.0f,               1.0f}, {1.0f,0.0f,0.0f,1.0f}),
-        TinyVkVertex({0.0f,0.0f}, {240.0f+960.0f,135.0f,        1.0f}, {0.0f,1.0f,0.0f,1.0f}),
-        TinyVkVertex({0.0f,0.0f}, {240.0f+960.0f,135.0f+540.0f, 1.0f}, {1.0f,0.0f,1.0f,1.0f}),
-        TinyVkVertex({0.0f,0.0f}, {240.0f,135.0f + 540.0f,      1.0f}, {0.0f,0.0f,1.0f,1.0f})
-    };*/
-    std::vector<TinyVkVertex> triangles = TinyVkQuad::CreateWithOffsetExt(glm::vec2(240.0f, 135.0f), glm::vec3(960.0f, 540.0f, 0.0f),
-        { {1.0f,0.0f,0.0f,1.0f}, {0.0f,1.0f,0.0f,1.0f}, {1.0f,0.0f,1.0f,1.0f}, {0.0f,0.0f,1.0f,1.0f} });
+    std::vector<TinyVkVertex> triangles = TinyVkQuad::CreateWithOffsetExt(glm::vec2(240.0f, 135.0f), glm::vec3(960.0f, 540.0f, 0.0f));
     std::vector<uint32_t> indices = {0,1,2,2,3,0};
 
     TinyVkBuffer vbuffer(vkdevice, pipeline, commandPool, triangles.size() * sizeof(TinyVkVertex), TinyVkBufferType::VKVMA_BUFFER_TYPE_VERTEX);
@@ -57,11 +49,11 @@ int32_t TINYVULKAN_WINDOWMAIN {
     );
     
     int angle = 0;
-    swapRenderer.onRenderEvents.hook(TinyVkCallback<TinyVkCommandPool&>([&angle, &vkdevice, &window, &swapRenderer, &pipeline, &queue, &clearColor, &depthStencil, &offsets](TinyVkCommandPool& commandPool) {
+    swapRenderer.onRenderEvents.hook(TinyVkCallback<TinyVkCommandPool&>([&angle, &vkdevice, &window, &swapRenderer, &pipeline, &queue /*, &clearColor, &depthStencil*/](TinyVkCommandPool& commandPool) {
         auto frame = queue.GetFrameResource();
 
         auto commandBuffer = commandPool.LeaseBuffer();
-        swapRenderer.BeginRecordCmdBuffer(commandBuffer.first, clearColor, depthStencil);
+        swapRenderer.BeginRecordCmdBuffer(commandBuffer.first /*, clearColor, depthStencil*/);
         
         int offsetx, offsety;
         offsetx = glm::sin(glm::radians(static_cast<glm::float32>(angle))) * 64;
@@ -72,19 +64,16 @@ int32_t TINYVULKAN_WINDOWMAIN {
         VkWriteDescriptorSet cameraDescriptor = pipeline.SelectWriteBufferDescriptor(0, 1, { &cameraDescriptorInfo });
         swapRenderer.PushDescriptorSet(commandBuffer.first, { cameraDescriptor });
         
-        swapRenderer.CmdBindGeometry(commandBuffer.first, &frame.vbuffer.buffer, frame.ibuffer.buffer, offsets, offsets[0]);
+        VkDeviceSize offsets[] = { 0 };
+        swapRenderer.CmdBindGeometry(commandBuffer.first, &frame.vbuffer.buffer, frame.ibuffer.buffer, offsets);
         swapRenderer.CmdDrawGeometry(commandBuffer.first, true, 1, 0, 6, 0, 0);
-        swapRenderer.EndRecordCmdBuffer(commandBuffer.first, clearColor, depthStencil);
+        swapRenderer.EndRecordCmdBuffer(commandBuffer.first /*, clearColor, depthStencil*/);
 
         angle += 1.25;
     }));
 
     std::thread mythread([&window, &swapRenderer]() { while (!window.ShouldClose()) { swapRenderer.RenderExecute(); } });
-    //window.onWhileMain.hook(
-    //    TinyVkCallback<std::atomic_bool&>([&window, &swapRenderer](std::atomic_bool& wait) { while (!window.ShouldClose()) { swapRenderer.RenderExecute(); } })
-    //);
     window.WhileMain(true);
     mythread.join();
-    
     return VK_SUCCESS;
 }
