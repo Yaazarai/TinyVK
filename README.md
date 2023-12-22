@@ -6,7 +6,7 @@ This is a fork of [TinyVulkan-Dynamic (e3339c9)](https://github.com/Yaazarai/Tin
 
 Provided however is a batch script development environment and sample `source.cpp` project which renders a single moving color-interpolated quad (requiring you to install the ***clang-cl/LLVM*** compiler/linker) which you can run using `buildtools.bat` to open a console window and then run any of the `_DEBUG`/`_RELEASE`/`_SHADERS` build commands. Please make sure to set your own library paths for LLVM/VULKAN/GLFW/VMA and any other custom library folders within the `buildtools.bat` batch file before compiling. Running the build commands outside of this batch development environment will fail as they do not have the require environment library path variables.
 
-### Why TinyVK (TinyVVulkan)?
+### Why TinyVK (TinyVulkan)?
 
 Tiny-Vulkan is a great simple renderer (with default 2D camera projection matrix) designed for rapid C++ graphics development, easily compatible with ImGUI for UI applications if needed or standalone for game development. This was not designed for large 3D Voxel rendering projects or the like complexity.
 
