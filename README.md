@@ -10,6 +10,11 @@ Provided however is a batch script development environment and sample `source.cp
 
 Tiny-Vulkan is a great simple renderer (with default 2D camera projection matrix) designed for rapid C++ graphics development, easily compatible with ImGUI for UI applications if needed or standalone for game development. This was not designed for large 3D Voxel rendering projects or the like complexity.
 
+Look how smooth TinyVK is too...
+<p align="center">
+  <img src="https://i.imgur.com/wAkzzrK.gif" />
+</p>
+
 ### API Structure
 
 Similar to actual Vulkan in order to get a working renderer that presents to a window you create a `TinyVkWindow`, `TinyVkVulkanDevice` -> `TinyVkCommandPool` (for general buffer/image transfer commands) -> `TinyVkGraphicsPipeline` then you can create the `TinyVkSwapChainRenderer` for presenitng ot the screen. In order to create render functions/callbacks you must register render events to the `onRenderEvents` invokable event in either the `TinyVkImageRenderer` or `TinyVkSwapChainRenderer` which will provide a command pool that you can "rent," buffers from to write commands to. Any buffer rented from the provided command pool should NOT be returned to the command pool--as the renderer uses "rented," command buffers during render execution. You can rent out as many command buffers as you want, so long as you've provided a large neough pool when created your renderer. The general layout for creating render events is as follows: hook callback to onRenderEvents, callback accepts reference to command pool, in callback rent command buffers, begin recording command buffer, register render calls, end recording command buffer, then in your main while loop call `RenderExecute()` (see renderer documentation below). Here is an example, also seen below:
