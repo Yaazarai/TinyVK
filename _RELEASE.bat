@@ -6,6 +6,7 @@ clang-cl^
  /D _RELEASE^
  /D _CRT_SECURE_NO_WARNINGS^
  /std:c++20^
+ /MP^
  /MD^
  /O2^
  /Oi^

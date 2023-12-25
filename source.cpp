@@ -24,7 +24,13 @@ int32_t TINYVULKAN_WINDOWMAIN {
     //VkClearValue clearColor { .color = { 0.0, 0.0, 0.0, 1.0f } };
     //VkClearValue depthStencil { .depthStencil = { 1.0f, 0 } };
 
-    std::vector<TinyVkVertex> triangles = TinyVkQuad::CreateWithOffsetExt(glm::vec2(240.0f, 135.0f), glm::vec3(960.0f, 540.0f, 0.0f));
+    std::vector<TinyVkVertex> triangles = {
+        TinyVkVertex({0.0f,0.0f}, {240.0f,135.0f,               1.0f}, {1.0f,0.0f,0.0f,1.0f}),
+        TinyVkVertex({0.0f,0.0f}, {240.0f+960.0f,135.0f,        1.0f}, {0.0f,1.0f,0.0f,1.0f}),
+        TinyVkVertex({0.0f,0.0f}, {240.0f+960.0f,135.0f+540.0f, 1.0f}, {1.0f,0.0f,1.0f,1.0f}),
+        TinyVkVertex({0.0f,0.0f}, {240.0f,135.0f + 540.0f,      1.0f}, {0.0f,0.0f,1.0f,1.0f})
+    };
+    //std::vector<TinyVkVertex> triangles = TinyVkQuad::CreateWithOffsetExt(glm::vec2(240.0f, 135.0f), glm::vec3(960.0f, 540.0f, 0.0f));
     std::vector<uint32_t> indices = {0,1,2,2,3,0};
 
     TinyVkBuffer vbuffer(vkdevice, pipeline, commandPool, triangles.size() * sizeof(TinyVkVertex), TinyVkBufferType::VKVMA_BUFFER_TYPE_VERTEX);
@@ -49,7 +55,8 @@ int32_t TINYVULKAN_WINDOWMAIN {
     );
     
     int angle = 0;
-    swapRenderer.onRenderEvents.hook(TinyVkCallback<TinyVkCommandPool&>([&angle, &vkdevice, &window, &swapRenderer, &pipeline, &queue /*, &clearColor, &depthStencil*/](TinyVkCommandPool& commandPool) {
+    swapRenderer.onRenderEvents.hook(TinyVkCallback<TinyVkCommandPool&>(
+        [&angle, &vkdevice, &window, &swapRenderer, &pipeline, &queue /*, &clearColor, &depthStencil*/](TinyVkCommandPool& commandPool) {
         auto frame = queue.GetFrameResource();
 
         auto commandBuffer = commandPool.LeaseBuffer();
@@ -68,7 +75,7 @@ int32_t TINYVULKAN_WINDOWMAIN {
         swapRenderer.CmdBindGeometry(commandBuffer.first, &frame.vbuffer.buffer, frame.ibuffer.buffer, offsets);
         swapRenderer.CmdDrawGeometry(commandBuffer.first, true, 1, 0, 6, 0, 0);
         swapRenderer.EndRecordCmdBuffer(commandBuffer.first /*, clearColor, depthStencil*/);
-
+        
         angle += 1.25;
     }));
 
