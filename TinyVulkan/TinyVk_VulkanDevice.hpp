@@ -99,17 +99,37 @@
 				#endif
 			}
 			
+			/// <summary>Returns an VkDeviceSize ranking of VK_PHYSICAL_DEVICE_TYPE for a VkPhysicalDevice ranked by memory heap size.</summary>
+			VkDeviceSize QueryPhysicalDeviceRank(VkPhysicalDevice device) {
+				VkPhysicalDeviceProperties2 properties {};
+				properties.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2;
+				vkGetPhysicalDeviceProperties2(device, &properties);
+
+				VkDeviceSize rank = 0;
+				switch(properties.properties.deviceType) {
+					case VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU: rank = 400; break;
+					case VK_PHYSICAL_DEVICE_TYPE_INTEGRATED_GPU: rank = 300; break;
+					case VK_PHYSICAL_DEVICE_TYPE_VIRTUAL_GPU: rank = 200; break;
+					case VK_PHYSICAL_DEVICE_TYPE_CPU: rank = 100; break;
+					case VK_PHYSICAL_DEVICE_TYPE_OTHER: rank = 0; break;
+				}
+
+				VkPhysicalDeviceMemoryProperties2 memoryProperties {};
+				memoryProperties.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_MEMORY_PROPERTIES_2;
+				vkGetPhysicalDeviceMemoryProperties2(device, &memoryProperties);\
+
+				for(VkMemoryHeap heap : memoryProperties.memoryProperties.memoryHeaps)
+					if (heap.flags & VK_MEMORY_HEAP_DEVICE_LOCAL_BIT)
+						return rank + (heap.size / 1000 / 1000 / 1000);
+
+				return 0;
+			}
+
 			/// <summary>Returns the first usable GPU.</summary>
 			void QueryPhysicalDevice() {
 				std::vector<VkPhysicalDevice> suitableDevices = QuerySuitableDevices();
-				std::sort(suitableDevices.begin(), suitableDevices.end(), [](VkPhysicalDevice A, VkPhysicalDevice B) {
-					VkPhysicalDeviceProperties2 propertiesA {};
-					VkPhysicalDeviceProperties2 propertiesB {};
-					propertiesA.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2;
-					propertiesB.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2;
-					vkGetPhysicalDeviceProperties2(A, &propertiesA);
-					vkGetPhysicalDeviceProperties2(B, &propertiesB);
-					return static_cast<size_t>(propertiesA.properties.deviceType) < static_cast<size_t>(propertiesB.properties.deviceType);
+				std::sort(suitableDevices.begin(), suitableDevices.end(), [this](VkPhysicalDevice A, VkPhysicalDevice B) {
+					return QueryPhysicalDeviceRank(A) >= QueryPhysicalDeviceRank(B);
 				});
 				physicalDevice = (suitableDevices.size() > 0)? suitableDevices.front() : VK_NULL_HANDLE;
 
@@ -127,6 +147,7 @@
 					vkGetPhysicalDeviceProperties2(physicalDevice, &deviceProperties);
 
 					std::cout << "GPU Device Name:        " << deviceProperties.properties.deviceName << std::endl;
+					std::cout << "Device Rank:            " << QueryPhysicalDeviceRank(physicalDevice) << std::endl;
 					std::cout << "Push Constant Memory:   " << deviceProperties.properties.limits.maxPushConstantsSize << " Bytes" << std::endl;
 					std::cout << "Push Descriptor Memory: " << pushDescriptorProps.maxPushDescriptors << " Count" << std::endl;
 				#endif
