@@ -80,6 +80,7 @@ int32_t TINYVULKAN_WINDOWMAIN {
     }));
 
     std::thread mythread([&window, &swapRenderer]() { while (!window.ShouldClose()) { swapRenderer.RenderExecute(); } });
+    //window.onWhileMain.hook(TinyVkCallback<std::atomic_bool&>([&swapRenderer](std::atomic_bool& check){ swapRenderer.RenderExecute(); }));
     //window.WhileMain(false);
     window.WhileMain(true);
     mythread.join();
