@@ -35,7 +35,7 @@
 			VkFormat imageFormat;
 			VkExtent2D imageExtent;
 			VkImageUsageFlags imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
-			const TinyVkBufferingMode bufferingMode;
+			TinyVkBufferingMode bufferingMode;
 			std::vector<VkImage> images;
 			std::vector<VkImageView> imageViews;
 
@@ -193,7 +193,6 @@
 				return extent;
 			}
 			
-
 			TinyVkGraphicsPipeline* graphicsPipeline;
 			std::vector<VkSemaphore> imageAvailableSemaphores;
 			std::vector<VkSemaphore> renderFinishedSemaphores;
@@ -295,9 +294,12 @@
 				if (!presentable) return;
 
 				VkResult result = VK_SUCCESS;
-				if ((result = RendererAcquireImage()) == VK_SUCCESS)
-					if ((result = RendererExecuteEvents()) == VK_SUCCESS)
+				result = RendererAcquireImage();
+				if (result == VK_SUCCESS) {
+					result = RendererExecuteEvents();
+					if (result == VK_SUCCESS)
 						result = RendererSubmitPresent();
+				}
 
 				if (result == VK_ERROR_OUT_OF_DATE_KHR) {
 					commandPools[currentSyncFrame]->ReturnAllBuffers(true);
@@ -311,7 +313,7 @@
 			TinyVkWindow& window;
 
 			inline static TinyVkInvokable<int, int> onResizeFrameBuffer;
-			std::atomic<bool> presentable;
+			std::atomic_bool presentable;
 
 			/// Invokable Render Events: (executed in TinyVkSwapChainRenderer::RenderExecute()
 			TinyVkInvokable<TinyVkCommandPool&> onRenderEvents;
