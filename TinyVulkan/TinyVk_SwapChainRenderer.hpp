@@ -31,6 +31,7 @@
 		private:
 			std::timed_mutex swapChainMutex;
 			TinyVkSurfaceSupporter presentDetails;
+			TinyVkSurfaceSupporter refreshPresentDetails;
 			VkSwapchainKHR swapChain = VK_NULL_HANDLE;
 			VkFormat imageFormat;
 			VkExtent2D imageExtent;
@@ -291,7 +292,10 @@
 			}
 
 			void RenderSwapChain() {
-				if (!presentable) return;
+				if (!presentable) {
+					OnFrameBufferResizeCallbackNoLock(window.GetHandle(), window.GetWidth(), window.GetHeight());
+					return;
+				}
 
 				VkResult result = VK_SUCCESS;
 				result = RendererAcquireImage();
@@ -315,7 +319,6 @@
 			inline static TinyVkInvokable<int, int> onResizeFrameBuffer;
 			std::atomic_bool presentable;
 
-			/// Invokable Render Events: (executed in TinyVkSwapChainRenderer::RenderExecute()
 			TinyVkInvokable<TinyVkCommandPool&> onRenderEvents;
 
 			TinyVkSwapChainRenderer operator=(const TinyVkSwapChainRenderer& swapRenderer) = delete;
@@ -380,19 +383,17 @@
 				return vkAcquireNextImageKHR(vkdevice.GetLogicalDevice(), swapChain, UINT64_MAX, semaphore, fence, &imageIndex);
 			}
 
-			/// <summary>[overridable] Notify the render engine that the window's frame buffer has been resized.</summary>
-			void OnFrameBufferResizeCallback(GLFWwindow* hwndWindow, int width, int height) {
+			/// <summary>Notify the render engine that the window's frame buffer needs to be refreshed (without thread locking).</summary>
+			void OnFrameBufferResizeCallbackNoLock(GLFWwindow* hwndWindow, int width, int height) {
 				if (hwndWindow != window.GetHandle()) return;
 
 				if (width > 0 && height > 0) {
-					timed_guard<false> swapChainLock(swapChainMutex);
-					if (!swapChainLock.Acquired()) return;
-
 					vkDeviceWaitIdle(vkdevice.GetLogicalDevice());
 
 					for (auto imageView : imageViews)
 						vkDestroyImageView(vkdevice.GetLogicalDevice(), imageView, VK_NULL_HANDLE);
 					
+					presentDetails = refreshPresentDetails;
 					VkSwapchainKHR oldSwapChain = swapChain;
 					CreateSwapChain(width, height);
 					vkDestroySwapchainKHR(vkdevice.GetLogicalDevice(), oldSwapChain, VK_NULL_HANDLE);
@@ -400,6 +401,13 @@
 					presentable = true;
 					onResizeFrameBuffer.invoke(imageExtent.width, imageExtent.height);
 				}
+			}
+			
+			/// <summary>Notify the render engine that the window's frame buffer needs to be refreshed (with thread locking).</summary>
+			void OnFrameBufferResizeCallback(GLFWwindow* hwndWindow, int width, int height) {
+				timed_guard<false> swapChainLock(swapChainMutex);
+				if (!swapChainLock.Acquired()) return;
+				OnFrameBufferResizeCallbackNoLock(hwndWindow, width, height);
 			}
 
 			/// <summary>Returns the current resource synchronized frame index.</summary>
@@ -564,6 +572,14 @@
 				timed_guard swapChainLock(swapChainMutex);
 				if (!swapChainLock.Acquired()) return;
 				RenderSwapChain();
+			}
+
+			//VkPresentModeKHR newPresentMode;
+			void PushPresentMode(VkPresentModeKHR presentMode) {
+				if (presentMode != presentDetails.idealPresentMode) {
+					refreshPresentDetails = { presentDetails.dataFormat, presentDetails.colorSpace, presentMode };
+					presentable = false;
+				}
 			}
 		};
 	}

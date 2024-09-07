@@ -19,7 +19,7 @@ int32_t TINYVULKAN_WINDOWMAIN {
     TinyVkVulkanDevice vkdevice("Sample Application", rdeviceTypes, &window, window.QueryRequiredExtensions(TINYVK_VALIDATION_LAYERS));
     TinyVkCommandPool commandPool(vkdevice, DEFAULT_COMMAND_POOLSIZE);
     TinyVkGraphicsPipeline pipeline(vkdevice, vertexDescription, defaultShaders, pushDescriptorLayouts, {}, false);
-    TinyVkSwapChainRenderer swapRenderer(vkdevice, window, pipeline, bufferingMode);
+    TinyVkSwapChainRenderer swapRenderer(vkdevice, window, pipeline, bufferingMode, 32UL, { VK_FORMAT_B8G8R8A8_UNORM, VK_COLOR_SPACE_SRGB_NONLINEAR_KHR, VK_PRESENT_MODE_FIFO_KHR });
     
     //VkClearValue clearColor { .color = { 0.0, 0.0, 0.0, 1.0f } };
     //VkClearValue depthStencil { .depthStencil = { 1.0f, 0 } };
@@ -76,7 +76,10 @@ int32_t TINYVULKAN_WINDOWMAIN {
         swapRenderer.CmdDrawGeometry(commandBuffer.first, true, 1, 0, 6, 0, 0);
         swapRenderer.EndRecordCmdBuffer(commandBuffer.first /*, clearColor, depthStencil*/);
         
-        angle += 1.25;
+        angle += 1;
+
+        if (angle % 200 == 0) swapRenderer.PushPresentMode(VK_PRESENT_MODE_IMMEDIATE_KHR);
+        if (angle % 400 == 0) swapRenderer.PushPresentMode(VK_PRESENT_MODE_FIFO_KHR);
     }));
 
     std::thread mythread([&window, &swapRenderer]() { while (!window.ShouldClose()) { swapRenderer.RenderExecute(); } });
