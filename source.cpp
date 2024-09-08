@@ -12,14 +12,12 @@ const TinyVkBufferingMode bufferingMode = TinyVkBufferingMode::DOUBLE;
 const TinyVkVertexDescription vertexDescription = TinyVkVertex::GetVertexDescription();
 const std::vector<VkDescriptorSetLayoutBinding> pushDescriptorLayouts = { TinyVkGraphicsPipeline::SelectPushDescriptorLayoutBinding(0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_VERTEX_BIT, 1) };
 
-#define DEFAULT_COMMAND_POOLSIZE 20
-
 int32_t TINYVULKAN_WINDOWMAIN {
     TinyVkWindow window("Sample Application", 1440, 810, true, false);
     TinyVkVulkanDevice vkdevice("Sample Application", rdeviceTypes, &window, window.QueryRequiredExtensions(TINYVK_VALIDATION_LAYERS));
-    TinyVkCommandPool commandPool(vkdevice, DEFAULT_COMMAND_POOLSIZE);
+    TinyVkCommandPool commandPool(vkdevice);
     TinyVkGraphicsPipeline pipeline(vkdevice, vertexDescription, defaultShaders, pushDescriptorLayouts, {}, false);
-    TinyVkSwapChainRenderer swapRenderer(vkdevice, window, pipeline, bufferingMode, 32UL, { VK_FORMAT_B8G8R8A8_UNORM, VK_COLOR_SPACE_SRGB_NONLINEAR_KHR, VK_PRESENT_MODE_FIFO_KHR });
+    TinyVkSwapChainRenderer swapRenderer(vkdevice, window, pipeline, bufferingMode);
     
     //VkClearValue clearColor { .color = { 0.0, 0.0, 0.0, 1.0f } };
     //VkClearValue depthStencil { .depthStencil = { 1.0f, 0 } };
@@ -33,10 +31,14 @@ int32_t TINYVULKAN_WINDOWMAIN {
     //std::vector<TinyVkVertex> triangles = TinyVkQuad::CreateWithOffsetExt(glm::vec2(240.0f, 135.0f), glm::vec3(960.0f, 540.0f, 0.0f));
     std::vector<uint32_t> indices = {0,1,2,2,3,0};
 
-    TinyVkBuffer vbuffer(vkdevice, pipeline, commandPool, triangles.size() * sizeof(TinyVkVertex), TinyVkBufferType::VKVMA_BUFFER_TYPE_VERTEX);
-    vbuffer.StageBufferData(triangles.data(), triangles.size() * sizeof(TinyVkVertex), 0, 0);
-    TinyVkBuffer ibuffer(vkdevice, pipeline, commandPool, indices.size() * sizeof(indices[0]), TinyVkBufferType::VKVMA_BUFFER_TYPE_INDEX);
-    ibuffer.StageBufferData(indices.data(), indices.size() * sizeof(indices[0]), 0, 0);
+    size_t sizeofTriangles = TinyVkBuffer::GetSizeofVector<TinyVkVertex>(triangles);
+    TinyVkBuffer vbuffer(vkdevice, pipeline, commandPool, sizeofTriangles, TinyVkBufferType::VKVMA_BUFFER_TYPE_VERTEX);
+    vbuffer.StageBufferData(triangles.data(), sizeofTriangles, 0, 0);
+    
+    size_t sizeofIndices = TinyVkBuffer::GetSizeofVector<uint32_t>(indices);
+    TinyVkBuffer ibuffer(vkdevice, pipeline, commandPool, sizeofIndices, TinyVkBufferType::VKVMA_BUFFER_TYPE_INDEX);
+    ibuffer.StageBufferData(indices.data(), sizeofIndices, 0, 0);
+    
     TinyVkBuffer projection1(vkdevice, pipeline, commandPool, sizeof(glm::mat4), TinyVkBufferType::VKVMA_BUFFER_TYPE_UNIFORM);
     TinyVkBuffer projection2(vkdevice, pipeline, commandPool, sizeof(glm::mat4), TinyVkBufferType::VKVMA_BUFFER_TYPE_UNIFORM);
 
@@ -78,6 +80,7 @@ int32_t TINYVULKAN_WINDOWMAIN {
         
         angle += 1;
 
+        //swapRenderer.PushPresentMode(VK_PRESENT_MODE_FIFO_KHR);
         if (angle % 200 == 0) swapRenderer.PushPresentMode(VK_PRESENT_MODE_IMMEDIATE_KHR);
         if (angle % 400 == 0) swapRenderer.PushPresentMode(VK_PRESENT_MODE_FIFO_KHR);
     }));

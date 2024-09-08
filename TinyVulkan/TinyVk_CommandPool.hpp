@@ -40,6 +40,7 @@
 		public:
 			TinyVkVulkanDevice& vkdevice;
 			std::vector<std::pair<VkCommandBuffer, VkBool32>> commandBuffers;
+			static const size_t defaultCommandPoolSize = 32UL;			
 
 			TinyVkCommandPool operator=(const TinyVkCommandPool& cmdPool) = delete;
 
@@ -52,7 +53,7 @@
 			}
 			
 			/// <summary>Creates a command pool to lease VkCommandBuffers from for recording render commands.</summary>
-			TinyVkCommandPool(TinyVkVulkanDevice& vkdevice, size_t bufferCount = 32ULL) : vkdevice(vkdevice), bufferCount(bufferCount) {
+			TinyVkCommandPool(TinyVkVulkanDevice& vkdevice, size_t bufferCount = defaultCommandPoolSize) : vkdevice(vkdevice), bufferCount(bufferCount) {
 				onDispose.hook(TinyVkCallback<bool>([this](bool forceDispose) {this->Disposable(forceDispose); }));
 
 				CreateCommandPool();
@@ -111,6 +112,9 @@
 				if (resetCmdPool) vkResetCommandPool(vkdevice.GetLogicalDevice(), commandPool, 0);
 				for(auto& cmdBuffer : commandBuffers) cmdBuffer.second = false;
 			}
+
+			/// <summary>Returns the default command pool size (number of buffers in the pool).</summary> 
+			static const size_t GetDefaultPoolSize() { return defaultCommandPoolSize; }
 		};
 	}
 #endif

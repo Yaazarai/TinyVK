@@ -105,7 +105,7 @@
 			TinyVkBuffer operator=(const TinyVkBuffer& buffer) = delete;
 
 			/// <summary>Copies data from CPU accessible memory to GPU accessible memory.</summary>
-			void StageBufferData(void* data, VkDeviceSize dataSize, VkDeviceSize srcOffset, VkDeviceSize dstOffset) {
+			void StageBufferData(void* data, VkDeviceSize dataSize, VkDeviceSize srcOffset = 0, VkDeviceSize dstOffset = 0) {
 				TinyVkBuffer stagingBuffer = TinyVkBuffer(vkdevice, graphicsPipeline, commandPool, dataSize, TinyVkBufferType::VKVMA_BUFFER_TYPE_STAGING);
 				memcpy(stagingBuffer.description.pMappedData, data, (size_t)dataSize);
 				TransferBufferCmd(stagingBuffer, size, srcOffset, dstOffset);
@@ -152,6 +152,12 @@
 
 			/// <summary>Creates the data descriptor that represents this buffer when passing into graphicspipeline.SelectWrite*Descriptor().</summary>
 			VkDescriptorBufferInfo GetBufferDescriptor(VkDeviceSize offset = 0, VkDeviceSize range = VK_WHOLE_SIZE) { return { buffer, offset, range }; }
+
+			template<typename T>
+			static size_t GetSizeofVector(std::vector<T> vector) { return vector.size() * sizeof(T); }
+
+			template<typename T, size_t S>
+			static size_t GetSizeofArray(std::array<T,S> array) { return S * sizeof(T); }
 		};
 	}
 #endif

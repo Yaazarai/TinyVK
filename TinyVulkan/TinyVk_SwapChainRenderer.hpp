@@ -31,7 +31,6 @@
 		private:
 			std::timed_mutex swapChainMutex;
 			TinyVkSurfaceSupporter presentDetails;
-			TinyVkSurfaceSupporter refreshPresentDetails;
 			VkSwapchainKHR swapChain = VK_NULL_HANDLE;
 			VkFormat imageFormat;
 			VkExtent2D imageExtent;
@@ -356,7 +355,7 @@
 			}
 
 			/// <summary>Creates a renderer specifically for performing render commands on a TinyVkSwapChain (VkSwapChain) to present to the window.</summary>
-			TinyVkSwapChainRenderer(TinyVkVulkanDevice& vkdevice, TinyVkWindow& window, TinyVkGraphicsPipeline& graphicsPipeline, const TinyVkBufferingMode bufferingMode, size_t cmdpoolbuffercount = 32ULL, TinyVkSurfaceSupporter presentDetails = TinyVkSurfaceSupporter(), VkImageUsageFlags imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT)
+			TinyVkSwapChainRenderer(TinyVkVulkanDevice& vkdevice, TinyVkWindow& window, TinyVkGraphicsPipeline& graphicsPipeline, const TinyVkBufferingMode bufferingMode, size_t cmdpoolbuffercount = TinyVkCommandPool::GetDefaultPoolSize(), TinyVkSurfaceSupporter presentDetails = TinyVkSurfaceSupporter(), VkImageUsageFlags imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT)
 				: vkdevice(vkdevice), window(window), graphicsPipeline(&graphicsPipeline), bufferingMode(bufferingMode), presentDetails(presentDetails), imageUsage(imageUsage), presentable(true) {
 				onDispose.hook(TinyVkCallback<bool>([this](bool forceDispose) {this->Disposable(forceDispose); }));
 				onResizeFrameBuffer.hook(TinyVkCallback<int, int>([this](int, int){ this->RenderSwapChain(); }));
@@ -393,7 +392,6 @@
 					for (auto imageView : imageViews)
 						vkDestroyImageView(vkdevice.GetLogicalDevice(), imageView, VK_NULL_HANDLE);
 					
-					presentDetails = refreshPresentDetails;
 					VkSwapchainKHR oldSwapChain = swapChain;
 					CreateSwapChain(width, height);
 					vkDestroySwapchainKHR(vkdevice.GetLogicalDevice(), oldSwapChain, VK_NULL_HANDLE);
@@ -577,7 +575,7 @@
 			//VkPresentModeKHR newPresentMode;
 			void PushPresentMode(VkPresentModeKHR presentMode) {
 				if (presentMode != presentDetails.idealPresentMode) {
-					refreshPresentDetails = { presentDetails.dataFormat, presentDetails.colorSpace, presentMode };
+					presentDetails = { presentDetails.dataFormat, presentDetails.colorSpace, presentMode };
 					presentable = false;
 				}
 			}
