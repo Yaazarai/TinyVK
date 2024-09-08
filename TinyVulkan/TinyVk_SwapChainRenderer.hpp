@@ -291,7 +291,7 @@
 			}
 
 			void RenderSwapChain() {
-				if (refreshable) OnFrameBufferResizeCallbackNoLock(window.GetHandle(), window.GetWidth(), window.GetHeight());
+				if (refreshable) { OnFrameBufferResizeCallbackNoLock(window.GetHandle(), window.GetWidth(), window.GetHeight()); return; }
 				if (!presentable) return;
 
 				VkResult result = VK_SUCCESS;

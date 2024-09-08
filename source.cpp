@@ -80,7 +80,6 @@ int32_t TINYVULKAN_WINDOWMAIN {
         
         angle += 1;
 
-        //swapRenderer.PushPresentMode(VK_PRESENT_MODE_FIFO_KHR);
         if (angle % 200 == 0) swapRenderer.PushPresentMode(VK_PRESENT_MODE_IMMEDIATE_KHR);
         if (angle % 400 == 0) swapRenderer.PushPresentMode(VK_PRESENT_MODE_FIFO_KHR);
     }));
