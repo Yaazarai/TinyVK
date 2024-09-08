@@ -291,10 +291,8 @@
 			}
 
 			void RenderSwapChain() {
-				if (!presentable) {
-					OnFrameBufferResizeCallbackNoLock(window.GetHandle(), window.GetWidth(), window.GetHeight());
-					return;
-				}
+				if (refreshable) OnFrameBufferResizeCallbackNoLock(window.GetHandle(), window.GetWidth(), window.GetHeight());
+				if (!presentable) return;
 
 				VkResult result = VK_SUCCESS;
 				result = RendererAcquireImage();
@@ -316,7 +314,7 @@
 			TinyVkWindow& window;
 
 			inline static TinyVkInvokable<int, int> onResizeFrameBuffer;
-			std::atomic_bool presentable;
+			std::atomic_bool presentable, refreshable;
 
 			TinyVkInvokable<TinyVkCommandPool&> onRenderEvents;
 
@@ -397,6 +395,7 @@
 					vkDestroySwapchainKHR(vkdevice.GetLogicalDevice(), oldSwapChain, VK_NULL_HANDLE);
 
 					presentable = true;
+					refreshable = false;
 					onResizeFrameBuffer.invoke(imageExtent.width, imageExtent.height);
 				}
 			}
@@ -576,7 +575,7 @@
 			void PushPresentMode(VkPresentModeKHR presentMode) {
 				if (presentMode != presentDetails.idealPresentMode) {
 					presentDetails = { presentDetails.dataFormat, presentDetails.colorSpace, presentMode };
-					presentable = false;
+					refreshable = true;
 				}
 			}
 		};

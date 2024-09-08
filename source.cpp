@@ -58,7 +58,7 @@ int32_t TINYVULKAN_WINDOWMAIN {
     
     int angle = 0;
     swapRenderer.onRenderEvents.hook(TinyVkCallback<TinyVkCommandPool&>(
-        [&angle, &vkdevice, &window, &swapRenderer, &pipeline, &queue /*, &clearColor, &depthStencil*/](TinyVkCommandPool& commandPool) {
+        [&angle, &indices, &vkdevice, &window, &swapRenderer, &pipeline, &queue /*, &clearColor, &depthStencil*/](TinyVkCommandPool& commandPool) {
         auto frame = queue.GetFrameResource();
 
         auto commandBuffer = commandPool.LeaseBuffer();
@@ -75,7 +75,7 @@ int32_t TINYVULKAN_WINDOWMAIN {
         
         VkDeviceSize offsets[] = { 0 };
         swapRenderer.CmdBindGeometry(commandBuffer.first, &frame.vbuffer.buffer, frame.ibuffer.buffer, offsets);
-        swapRenderer.CmdDrawGeometry(commandBuffer.first, true, 1, 0, 6, 0, 0);
+        swapRenderer.CmdDrawGeometry(commandBuffer.first, true, 1, 0, indices.size(), 0, 0);
         swapRenderer.EndRecordCmdBuffer(commandBuffer.first /*, clearColor, depthStencil*/);
         
         angle += 1;
