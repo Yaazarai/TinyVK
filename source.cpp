@@ -17,8 +17,9 @@ int32_t TINYVULKAN_WINDOWMAIN {
     TinyVkVulkanDevice vkdevice("Sample Application", rdeviceTypes, &window, window.QueryRequiredExtensions(TINYVK_VALIDATION_LAYERS));
     TinyVkCommandPool commandPool(vkdevice);
     TinyVkGraphicsPipeline pipeline(vkdevice, vertexDescription, defaultShaders, pushDescriptorLayouts, {}, false);
-    TinyVkSwapChainRenderer swapRenderer(vkdevice, window, pipeline, bufferingMode);
-    
+    TinyVkRenderContext renderContext(vkdevice, commandPool, pipeline);
+    TinyVkSwapChainRenderer swapRenderer(renderContext, window, bufferingMode);
+
     //VkClearValue clearColor { .color = { 0.0, 0.0, 0.0, 1.0f } };
     //VkClearValue depthStencil { .depthStencil = { 1.0f, 0 } };
 
@@ -32,15 +33,15 @@ int32_t TINYVULKAN_WINDOWMAIN {
     std::vector<uint32_t> indices = {0,1,2,2,3,0};
 
     size_t sizeofTriangles = TinyVkBuffer::GetSizeofVector<TinyVkVertex>(triangles);
-    TinyVkBuffer vbuffer(vkdevice, pipeline, commandPool, sizeofTriangles, TinyVkBufferType::VKVMA_BUFFER_TYPE_VERTEX);
+    TinyVkBuffer vbuffer(renderContext, sizeofTriangles, TinyVkBufferType::VKVMA_BUFFER_TYPE_VERTEX);
     vbuffer.StageBufferData(triangles.data(), sizeofTriangles, 0, 0);
     
     size_t sizeofIndices = TinyVkBuffer::GetSizeofVector<uint32_t>(indices);
-    TinyVkBuffer ibuffer(vkdevice, pipeline, commandPool, sizeofIndices, TinyVkBufferType::VKVMA_BUFFER_TYPE_INDEX);
+    TinyVkBuffer ibuffer(renderContext, sizeofIndices, TinyVkBufferType::VKVMA_BUFFER_TYPE_INDEX);
     ibuffer.StageBufferData(indices.data(), sizeofIndices, 0, 0);
     
-    TinyVkBuffer projection1(vkdevice, pipeline, commandPool, sizeof(glm::mat4), TinyVkBufferType::VKVMA_BUFFER_TYPE_UNIFORM);
-    TinyVkBuffer projection2(vkdevice, pipeline, commandPool, sizeof(glm::mat4), TinyVkBufferType::VKVMA_BUFFER_TYPE_UNIFORM);
+    TinyVkBuffer projection1(renderContext, sizeof(glm::mat4), TinyVkBufferType::VKVMA_BUFFER_TYPE_UNIFORM);
+    TinyVkBuffer projection2(renderContext, sizeof(glm::mat4), TinyVkBufferType::VKVMA_BUFFER_TYPE_UNIFORM);
 
     struct SwapFrame {
         TinyVkBuffer &projection, &ibuffer, &vbuffer;
@@ -56,6 +57,31 @@ int32_t TINYVULKAN_WINDOWMAIN {
         TinyVkCallback<SwapFrame&>([](SwapFrame& resource){})
     );
     
+    /// TESTING RENDERCONTEXT CHANGES WITH THE IMAGE RENDERER.
+    TinyVkImage sourceImage(renderContext, 960, 540);
+    TinyVkImageRenderer imageRenderer(renderContext, &sourceImage, TinyVkCommandPool::defaultCommandPoolSize);
+    imageRenderer.onRenderEvents.hook(TinyVkCallback<TinyVkCommandPool&>(
+        [&indices, &vkdevice, &window, &imageRenderer, &pipeline, &queue /*, &clearColor, &depthStencil*/](TinyVkCommandPool& commandPool) {
+        auto frame = queue.GetFrameResource();
+
+        auto commandBuffer = commandPool.LeaseBuffer();
+        imageRenderer.BeginRecordCmdBuffer(commandBuffer.first /*, clearColor, depthStencil*/);
+        
+        glm::mat4 camera = TinyVkMath::Project2D(window.GetWidth(), window.GetHeight(), 0, 0, 1.0, 0.0);
+        frame.projection.StageBufferData(&camera, sizeof(glm::mat4), 0, 0);
+        VkDescriptorBufferInfo cameraDescriptorInfo = frame.projection.GetBufferDescriptor();
+        VkWriteDescriptorSet cameraDescriptor = pipeline.SelectWriteBufferDescriptor(0, 1, { &cameraDescriptorInfo });
+        imageRenderer.PushDescriptorSet(commandBuffer.first, { cameraDescriptor });
+        
+        VkDeviceSize offsets[] = { 0 };
+        imageRenderer.CmdBindGeometry(commandBuffer.first, &frame.vbuffer.buffer, frame.ibuffer.buffer, offsets);
+        imageRenderer.CmdDrawGeometry(commandBuffer.first, true, 1, 0, indices.size(), 0, 0);    
+        imageRenderer.EndRecordCmdBuffer(commandBuffer.first /*, clearColor, depthStencil*/);
+    }));
+    imageRenderer.RenderExecute();
+    imageRenderer.Disposable(true);
+
+    // TESTING RENDERCONTEXT CHANGES WITH THE SWAPCHAIN RENDERER.
     int angle = 0;
     swapRenderer.onRenderEvents.hook(TinyVkCallback<TinyVkCommandPool&>(
         [&angle, &indices, &vkdevice, &window, &swapRenderer, &pipeline, &queue /*, &clearColor, &depthStencil*/](TinyVkCommandPool& commandPool) {
@@ -75,7 +101,7 @@ int32_t TINYVULKAN_WINDOWMAIN {
         
         VkDeviceSize offsets[] = { 0 };
         swapRenderer.CmdBindGeometry(commandBuffer.first, &frame.vbuffer.buffer, frame.ibuffer.buffer, offsets);
-        swapRenderer.CmdDrawGeometry(commandBuffer.first, true, 1, 0, indices.size(), 0, 0);
+        swapRenderer.CmdDrawGeometry(commandBuffer.first, true, 1, 0, indices.size(), 0, 0);    
         swapRenderer.EndRecordCmdBuffer(commandBuffer.first /*, clearColor, depthStencil*/);
         
         angle += 1;

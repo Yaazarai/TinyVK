@@ -112,6 +112,7 @@
     #include "./TinyVk_GraphicsPipeline.hpp"
     #pragma endregion
     #pragma region TINYVULKAN_RENDERING
+    #include "./TinyVk_RenderContext.hpp"
     #include "./TinyVk_Buffer.hpp"
     #include "./TinyVk_Image.hpp"
     #include "./TinyVk_ImageRenderer.hpp"

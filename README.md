@@ -126,7 +126,7 @@ renderer.PushConstants(commandBuffer, VK_SHADER_STAGE_VERTEX_BIT, sizeof(glm::ma
 ```
 TinyVkVulkanDevice vkdevice("Sample Application", { VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU });
 TinyVkGraphicsPipeline pipeline(vkdevice, VK_FORMAT_B8G8R8A8_UNORM, vertexDescription, defaultShaders, pushDescriptorLayouts, {}, false);
-TinyVkImage image(vkdevice, pipeline, cmdpool, width, height, false /*isdepthimage*/, VK_FORMAT_B8G8R8A8_SRGB, TINYVK_UNDEFINED, VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE, VK_IMAGE_ASPECT_COLOR_BIT);
+TinyVkImage image(vkdevice, pipeline, cmdpool, width, height, false /*isdepthimage*/, VK_FORMAT_B8G8R8A8_UNORM, TINYVK_UNDEFINED, VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE, VK_IMAGE_ASPECT_COLOR_BIT);
 TinyVkImageRenderer imageRenderer(vkdevice, &image, pipeline, cmdBufferCount = 32 /*default*/);
 imageRenderer.onRenderEvents.hook(
     TinyVkCallback<TinyVkCommandPool&>([](TinyVkCommandPool& cmdPool){

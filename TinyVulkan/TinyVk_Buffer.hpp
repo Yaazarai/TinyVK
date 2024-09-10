@@ -45,16 +45,17 @@
 				allocCreateInfo.usage = VMA_MEMORY_USAGE_AUTO_PREFER_HOST;
 				allocCreateInfo.flags = flags;
 				
-				if (vmaCreateBuffer(vkdevice.GetAllocator(), &bufCreateInfo, &allocCreateInfo, &buffer, &memory, &description) != VK_SUCCESS)
+				if (vmaCreateBuffer(renderContext.vkdevice.GetAllocator(), &bufCreateInfo, &allocCreateInfo, &buffer, &memory, &description) != VK_SUCCESS)
 					throw std::runtime_error("TinyVulkan: Could not allocate memory for TinyVkBuffer!");
 			}
 		
 		public:
 			std::timed_mutex buffer_lock;
 
-			TinyVkVulkanDevice& vkdevice;
-			TinyVkGraphicsPipeline& graphicsPipeline;
-			TinyVkCommandPool& commandPool;
+			TinyVkRenderContext& renderContext;
+			//TinyVkVulkanDevice& vkdevice;
+			//TinyVkCommandPool& commandPool;
+			//TinyVkGraphicsPipeline& graphicsPipeline;
 
 			VkBuffer buffer = VK_NULL_HANDLE;
 			VmaAllocation memory = VK_NULL_HANDLE;
@@ -64,22 +65,22 @@
 			~TinyVkBuffer() { this->Dispose(); }
 
 			void Disposable(bool waitIdle) {
-				if (waitIdle) vkdevice.DeviceWaitIdle();
+				if (waitIdle) renderContext.vkdevice.DeviceWaitIdle();
 
-				vmaDestroyBuffer(vkdevice.GetAllocator(), buffer, memory);
+				vmaDestroyBuffer(renderContext.vkdevice.GetAllocator(), buffer, memory);
 			}
 
 			/// <summary>Creates a VkBuffer of the specified size in bytes with manually-set VMA memory allocation properties.</summary>
-			TinyVkBuffer(TinyVkVulkanDevice& vkdevice, TinyVkGraphicsPipeline& graphicsPipeline, TinyVkCommandPool& commandPool, VkDeviceSize dataSize, VkBufferUsageFlags usage, VmaAllocationCreateFlags flags)
-			: vkdevice(vkdevice), graphicsPipeline(graphicsPipeline), commandPool(commandPool), size(dataSize) {
+			TinyVkBuffer(TinyVkRenderContext& renderContext, VkDeviceSize dataSize, VkBufferUsageFlags usage, VmaAllocationCreateFlags flags)
+			: renderContext(renderContext), size(dataSize) {
 				onDispose.hook(TinyVkCallback<bool>([this](bool forceDispose) {this->Disposable(forceDispose); }));
 
 				CreateBuffer(size, usage, flags);
 			}
 
 			/// <summary>Creates a VkBuffer of the specified size in bytes with auto-set memory allocation properties by TinyVkBufferType.</summary>
-			TinyVkBuffer(TinyVkVulkanDevice& vkdevice, TinyVkGraphicsPipeline& graphicsPipeline, TinyVkCommandPool& commandPool, VkDeviceSize dataSize, TinyVkBufferType type)
-			: vkdevice(vkdevice), graphicsPipeline(graphicsPipeline), commandPool(commandPool), size(dataSize) {
+			TinyVkBuffer(TinyVkRenderContext& renderContext, VkDeviceSize dataSize, TinyVkBufferType type)
+			: renderContext(renderContext), size(dataSize) {
 				onDispose.hook(TinyVkCallback<bool>([this](bool forceDispose) {this->Disposable(forceDispose); }));
 
 				switch (type) {
@@ -106,7 +107,7 @@
 
 			/// <summary>Copies data from CPU accessible memory to GPU accessible memory.</summary>
 			void StageBufferData(void* data, VkDeviceSize dataSize, VkDeviceSize srcOffset = 0, VkDeviceSize dstOffset = 0) {
-				TinyVkBuffer stagingBuffer = TinyVkBuffer(vkdevice, graphicsPipeline, commandPool, dataSize, TinyVkBufferType::VKVMA_BUFFER_TYPE_STAGING);
+				TinyVkBuffer stagingBuffer = TinyVkBuffer(renderContext, dataSize, TinyVkBufferType::VKVMA_BUFFER_TYPE_STAGING);
 				memcpy(stagingBuffer.description.pMappedData, data, (size_t)dataSize);
 				TransferBufferCmd(stagingBuffer, size, srcOffset, dstOffset);
 				stagingBuffer.Dispose();
@@ -127,7 +128,7 @@
 
 			/// <summary>Begins a transfer command and returns the command buffer index pair used for the command allocated from a TinyVkCommandPool.</summary>
 			std::pair<VkCommandBuffer, int32_t> BeginTransferCmd() {
-				std::pair<VkCommandBuffer, int32_t> bufferIndexPair = commandPool.LeaseBuffer();
+				std::pair<VkCommandBuffer, int32_t> bufferIndexPair = renderContext.commandPool.LeaseBuffer();
 				
 				VkCommandBufferBeginInfo beginInfo{};
 				beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
@@ -145,9 +146,9 @@
 				submitInfo.commandBufferCount = 1;
 				submitInfo.pCommandBuffers = &bufferIndexPair.first;
 
-				vkQueueSubmit(graphicsPipeline.GetGraphicsQueue(), 1, &submitInfo, VK_NULL_HANDLE);
-				vkQueueWaitIdle(graphicsPipeline.GetGraphicsQueue());
-				commandPool.ReturnBuffer(bufferIndexPair);
+				vkQueueSubmit(renderContext.graphicsPipeline.GetGraphicsQueue(), 1, &submitInfo, VK_NULL_HANDLE);
+				vkQueueWaitIdle(renderContext.graphicsPipeline.GetGraphicsQueue());
+				renderContext.commandPool.ReturnBuffer(bufferIndexPair);
 			}
 
 			/// <summary>Creates the data descriptor that represents this buffer when passing into graphicspipeline.SelectWrite*Descriptor().</summary>

@@ -37,10 +37,7 @@
 		/// <summary>GPU device image for sending images to the render (GPU) device.</summary>
 		class TinyVkImage : public TinyVkDisposable {
 		private:
-			TinyVkVulkanDevice& vkdevice;
-			TinyVkGraphicsPipeline& graphicsPipeline;
-			TinyVkCommandPool& commandPool;
-			
+			TinyVkRenderContext& renderContext;
 			VkSamplerAddressMode addressingMode;
 
 			void CreateImageView() {
@@ -61,7 +58,7 @@
 				createInfo.subresourceRange.baseArrayLayer = 0;
 				createInfo.subresourceRange.layerCount = 1;
 
-				if (vkCreateImageView(vkdevice.GetLogicalDevice(), &createInfo, VK_NULL_HANDLE, &imageView) != VK_SUCCESS)
+				if (vkCreateImageView(renderContext.vkdevice.GetLogicalDevice(), &createInfo, VK_NULL_HANDLE, &imageView) != VK_SUCCESS)
 					throw std::runtime_error("TinyVulkan: Failed to create TinyVkImage view!");
 			}
 
@@ -76,7 +73,7 @@
 				samplerInfo.anisotropyEnable = VK_FALSE;
 				
 				VkPhysicalDeviceProperties properties{};
-				vkGetPhysicalDeviceProperties(vkdevice.GetPhysicalDevice(), &properties);
+				vkGetPhysicalDeviceProperties(renderContext.vkdevice.GetPhysicalDevice(), &properties);
 				samplerInfo.maxAnisotropy = properties.limits.maxSamplerAnisotropy;
 
 				samplerInfo.borderColor = VK_BORDER_COLOR_INT_OPAQUE_BLACK;
@@ -88,7 +85,7 @@
 				samplerInfo.minLod = 0.0f;
 				samplerInfo.maxLod = 0.0f;
 
-				if (vkCreateSampler(vkdevice.GetLogicalDevice(), &samplerInfo, VK_NULL_HANDLE, &imageSampler) != VK_SUCCESS)
+				if (vkCreateSampler(renderContext.vkdevice.GetLogicalDevice(), &samplerInfo, VK_NULL_HANDLE, &imageSampler) != VK_SUCCESS)
 					throw std::runtime_error("TinyVulkan: Failed to create image texture sampler!");
 			}
 
@@ -100,9 +97,9 @@
 				fenceInfo.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
 				fenceInfo.flags = VK_FENCE_CREATE_SIGNALED_BIT;
 
-				if (vkCreateSemaphore(vkdevice.GetLogicalDevice(), &semaphoreInfo, VK_NULL_HANDLE, &imageAvailable) != VK_SUCCESS ||
-					vkCreateSemaphore(vkdevice.GetLogicalDevice(), &semaphoreInfo, VK_NULL_HANDLE, &imageFinished) != VK_SUCCESS ||
-					vkCreateFence(vkdevice.GetLogicalDevice(), &fenceInfo, VK_NULL_HANDLE, &imageWaitable) != VK_SUCCESS)
+				if (vkCreateSemaphore(renderContext.vkdevice.GetLogicalDevice(), &semaphoreInfo, VK_NULL_HANDLE, &imageAvailable) != VK_SUCCESS ||
+					vkCreateSemaphore(renderContext.vkdevice.GetLogicalDevice(), &semaphoreInfo, VK_NULL_HANDLE, &imageFinished) != VK_SUCCESS ||
+					vkCreateFence(renderContext.vkdevice.GetLogicalDevice(), &fenceInfo, VK_NULL_HANDLE, &imageWaitable) != VK_SUCCESS)
 					throw std::runtime_error("TinyVulkan: Failed to create synchronization objects for a image renderer!");
 			}
 			
@@ -127,20 +124,20 @@
 			~TinyVkImage() { this->Dispose(); }
 
 			void Disposable(bool waitIdle) {
-				if (waitIdle) vkdevice.DeviceWaitIdle();
+				if (waitIdle) renderContext.vkdevice.DeviceWaitIdle();
 
-				vkDestroySampler(vkdevice.GetLogicalDevice(), imageSampler, VK_NULL_HANDLE);
-				vkDestroyImageView(vkdevice.GetLogicalDevice(), imageView, VK_NULL_HANDLE);
-				vmaDestroyImage(vkdevice.GetAllocator(), image, memory);
+				vkDestroySampler(renderContext.vkdevice.GetLogicalDevice(), imageSampler, VK_NULL_HANDLE);
+				vkDestroyImageView(renderContext.vkdevice.GetLogicalDevice(), imageView, VK_NULL_HANDLE);
+				vmaDestroyImage(renderContext.vkdevice.GetAllocator(), image, memory);
 
-				vkDestroySemaphore(vkdevice.GetLogicalDevice(), imageAvailable, VK_NULL_HANDLE);
-				vkDestroySemaphore(vkdevice.GetLogicalDevice(), imageFinished, VK_NULL_HANDLE);
-				vkDestroyFence(vkdevice.GetLogicalDevice(), imageWaitable, VK_NULL_HANDLE);
+				vkDestroySemaphore(renderContext.vkdevice.GetLogicalDevice(), imageAvailable, VK_NULL_HANDLE);
+				vkDestroySemaphore(renderContext.vkdevice.GetLogicalDevice(), imageFinished, VK_NULL_HANDLE);
+				vkDestroyFence(renderContext.vkdevice.GetLogicalDevice(), imageWaitable, VK_NULL_HANDLE);
 			}
 
 			/// <summary>Creates a VkImage for rendering or loading image files (stagedata) into.</summary>
-			TinyVkImage(TinyVkVulkanDevice& vkdevice, TinyVkGraphicsPipeline& graphicsPipeline, TinyVkCommandPool& commandPool, VkDeviceSize width, VkDeviceSize height, bool isDepthImage = false, VkFormat format = VK_FORMAT_B8G8R8A8_SRGB, TinyVkImageLayout layout = TINYVK_UNDEFINED, VkSamplerAddressMode addressingMode = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE, VkImageAspectFlags aspectFlags = VK_IMAGE_ASPECT_COLOR_BIT)
-			: vkdevice(vkdevice), graphicsPipeline(graphicsPipeline), commandPool(commandPool), width(width), height(height), isDepthImage(isDepthImage), format(format), currentLayout(TINYVK_UNDEFINED), addressingMode(addressingMode), aspectFlags(aspectFlags) {
+			TinyVkImage(TinyVkRenderContext& renderContext, VkDeviceSize width, VkDeviceSize height, bool isDepthImage = false, VkFormat format = VK_FORMAT_B8G8R8A8_UNORM, TinyVkImageLayout layout = TINYVK_UNDEFINED, VkSamplerAddressMode addressingMode = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE, VkImageAspectFlags aspectFlags = VK_IMAGE_ASPECT_COLOR_BIT)
+			: renderContext(renderContext), width(width), height(height), isDepthImage(isDepthImage), format(format), currentLayout(TINYVK_UNDEFINED), addressingMode(addressingMode), aspectFlags(aspectFlags) {
 				onDispose.hook(TinyVkCallback<bool>([this](bool forceDispose) {this->Disposable(forceDispose); }));
 
 				ReCreateImage(width, height, isDepthImage, format, layout, addressingMode, aspectFlags);
@@ -149,7 +146,7 @@
 			TinyVkImage operator=(const TinyVkImage& image) = delete;
 
 			/// <summary>Recreates this TinyVkImage using a new layout/format (don't forget to call image.Disposable(bool waitIdle) to dispose of the previous image first.</summary>
-			void ReCreateImage(VkDeviceSize width, VkDeviceSize height, bool isDepthImage = false, VkFormat format = VK_FORMAT_B8G8R8A8_SRGB, TinyVkImageLayout layout = TINYVK_UNDEFINED, VkSamplerAddressMode addressingMode = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE, VkImageAspectFlags aspectFlags = VK_IMAGE_ASPECT_COLOR_BIT) {
+			void ReCreateImage(VkDeviceSize width, VkDeviceSize height, bool isDepthImage = false, VkFormat format = VK_FORMAT_B8G8R8A8_UNORM, TinyVkImageLayout layout = TINYVK_UNDEFINED, VkSamplerAddressMode addressingMode = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE, VkImageAspectFlags aspectFlags = VK_IMAGE_ASPECT_COLOR_BIT) {
 				VkImageCreateInfo imgCreateInfo = { VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO };
 				imgCreateInfo.imageType = VK_IMAGE_TYPE_2D;
 				imgCreateInfo.extent.width = static_cast<uint32_t>(width);
@@ -177,7 +174,7 @@
 				allocCreateInfo.flags = VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT;
 				allocCreateInfo.priority = 1.0f;
 				
-				if (vmaCreateImage(vkdevice.GetAllocator(), &imgCreateInfo, &allocCreateInfo, &image, &memory, VK_NULL_HANDLE) != VK_SUCCESS)
+				if (vmaCreateImage(renderContext.vkdevice.GetAllocator(), &imgCreateInfo, &allocCreateInfo, &image, &memory, VK_NULL_HANDLE) != VK_SUCCESS)
 					throw std::runtime_error("TinyVulkan: Could not allocate GPU image data for TinyVkImage!");
 
 				CreateImageSyncObjects();
@@ -268,7 +265,7 @@
 
 			/// <summary>Copies data from CPU accessible memory to GPU accessible memory.</summary>
 			void StageImageData(void* data, VkDeviceSize dataSize) {
-				TinyVkBuffer stagingBuffer = TinyVkBuffer(vkdevice, graphicsPipeline, commandPool, dataSize, TinyVkBufferType::VKVMA_BUFFER_TYPE_STAGING);
+				TinyVkBuffer stagingBuffer = TinyVkBuffer(renderContext, dataSize, TinyVkBufferType::VKVMA_BUFFER_TYPE_STAGING);
 				memcpy(stagingBuffer.description.pMappedData, data, (size_t)dataSize);
 
 				TransitionLayoutCmd(TINYVK_TRANSFER_DST_OPTIMAL);
@@ -317,7 +314,7 @@
 
 			/// <summary>Begins a transfer command and returns the command buffer index pair used for the command allocated from a TinyVkCommandPool.</summary>
 			std::pair<VkCommandBuffer, int32_t> BeginTransferCmd() {
-				std::pair<VkCommandBuffer, int32_t> bufferIndexPair = commandPool.LeaseBuffer();
+				std::pair<VkCommandBuffer, int32_t> bufferIndexPair = renderContext.commandPool.LeaseBuffer();
 
 				VkCommandBufferBeginInfo beginInfo{};
 				beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
@@ -335,9 +332,9 @@
 				submitInfo.commandBufferCount = 1;
 				submitInfo.pCommandBuffers = &bufferIndexPair.first;
 
-				vkQueueSubmit(graphicsPipeline.GetGraphicsQueue(), 1, &submitInfo, VK_NULL_HANDLE);
-				vkQueueWaitIdle(graphicsPipeline.GetGraphicsQueue());
-				commandPool.ReturnBuffer(bufferIndexPair);
+				vkQueueSubmit(renderContext.graphicsPipeline.GetGraphicsQueue(), 1, &submitInfo, VK_NULL_HANDLE);
+				vkQueueWaitIdle(renderContext.graphicsPipeline.GetGraphicsQueue());
+				renderContext.commandPool.ReturnBuffer(bufferIndexPair);
 			}
 
 			/// <summary>Creates the data descriptor that represents this image when passing into graphicspipeline.SelectWrite*Descriptor().</summary>
