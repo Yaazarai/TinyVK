@@ -5,7 +5,7 @@
     #include "./TinyVulkan.hpp"
 
     namespace TINYVULKAN_NAMESPACE {
-        class TinyVkRenderContext : TinyVkRendererInterface {
+        class TinyVkRenderContext : public TinyVkRendererInterface {
         public:
             tinyvk::TinyVkVulkanDevice& vkdevice;
             tinyvk::TinyVkCommandPool& commandPool;
