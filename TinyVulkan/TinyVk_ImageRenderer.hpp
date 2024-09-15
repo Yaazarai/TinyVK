@@ -10,7 +10,7 @@
 		///		Call RenderExecute(mutex[optional], preRecordedCommandBuffer[optiona]) to render to the image.
 		///			You may pass a pre-recorded command buffer ready to go, or retrieve a command buffer from
 		///			the underlying command pool queue and build your command buffer with a render event (onRenderEvent).
-		///				onRenderEvent += callback<VkCommandBuffer>(...);
+		///				onRenderEvent.hook(callback<VkCommandBuffer>(...));
 		///				
 		///			If you use a render event, the command buffer will be returned to the command pool queue after execution.
 		///		
@@ -266,6 +266,10 @@
 				submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
 				submitInfo.commandBufferCount = static_cast<uint32_t>(commandBuffers.size());
 				submitInfo.pCommandBuffers = commandBuffers.data();
+				
+				VkSemaphore signalSemaphores[] = { renderTarget->imageFinished };
+				submitInfo.signalSemaphoreCount = 1;
+				submitInfo.pSignalSemaphores = signalSemaphores;
 
 				if (vkQueueSubmit(renderContext.graphicsPipeline.GetGraphicsQueue(), 1, &submitInfo, renderTarget->imageWaitable) != VK_SUCCESS)
 					throw std::runtime_error("TinyVulkan: Failed to submit draw command buffer!");

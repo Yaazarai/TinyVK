@@ -119,7 +119,7 @@
 
 			VkDeviceSize width, height;
 			VkFormat format;
-			bool isDepthImage = false;
+			const bool isDepthImage;
 
 			~TinyVkImage() { this->Dispose(); }
 
