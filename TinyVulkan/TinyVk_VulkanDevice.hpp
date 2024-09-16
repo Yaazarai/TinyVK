@@ -10,12 +10,16 @@
 		struct TinyVkQueueFamily {
 			std::optional<uint32_t> graphicsFamily;
 			std::optional<uint32_t> presentFamily;
+			std::optional<uint32_t> computeFamily;
 
 			/// <summary>Returns true/false if this is a complete graphics queue family.</summary>
 			bool HasGraphicsFamily() { return graphicsFamily.has_value(); }
 			
 			/// <summary>Returns true/false if this is a complete present queue family.</summary>
 			bool HasPresentFamily() { return presentFamily.has_value(); }
+
+			/// <summary>Returns true/false if this is a complete compute queue family.</summary>
+			bool HasComputeFamily() { return computeFamily.has_value(); }
 		};
 
 		union VkPhysicalDeviceFeaturesUnionArray {
@@ -146,10 +150,14 @@
 
 					vkGetPhysicalDeviceProperties2(physicalDevice, &deviceProperties);
 
-					std::cout << "GPU Device Name:        " << deviceProperties.properties.deviceName << std::endl;
-					std::cout << "Device Rank:            " << QueryPhysicalDeviceRank(physicalDevice) << std::endl;
-					std::cout << "Push Constant Memory:   " << deviceProperties.properties.limits.maxPushConstantsSize << " Bytes" << std::endl;
-					std::cout << "Push Descriptor Memory: " << pushDescriptorProps.maxPushDescriptors << " Count" << std::endl;
+					std::cout << "TinyVulkan: GPU Hardware Info" << std::endl;
+					std::cout << "\tGPU Device Name:        " << deviceProperties.properties.deviceName << std::endl;
+					std::cout << "\tDevice Rank:            " << QueryPhysicalDeviceRank(physicalDevice) << std::endl;
+					std::cout << "\tPush Constant Memory:   " << deviceProperties.properties.limits.maxPushConstantsSize << " Bytes" << std::endl;
+					std::cout << "\tPush Descriptor Memory: " << pushDescriptorProps.maxPushDescriptors << " Count" << std::endl;
+					
+					TinyVkQueueFamily indices = FindQueueFamilies(physicalDevice);
+					std::cout << "\tCompute Pipeline:       " << (useComputeBit?"true (e)":"false (e)") << " / " << (indices.HasComputeFamily()?"true (c)":"false (c)") << std::endl;
 				#endif
 			}
 			
@@ -206,6 +214,8 @@
 			}
 			
 		public:
+			const bool useComputeBit;
+
 			TinyVkVulkanDevice operator=(const TinyVkVulkanDevice&) = delete;
 
 			~TinyVkVulkanDevice() { this->Dispose(); }
@@ -223,7 +233,8 @@
 				vkDestroyInstance(instance, VK_NULL_HANDLE);
 			}
 
-			TinyVkVulkanDevice(const std::string title, const std::vector<VkPhysicalDeviceType> deviceTypes = { VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU, VK_PHYSICAL_DEVICE_TYPE_INTEGRATED_GPU, VK_PHYSICAL_DEVICE_TYPE_VIRTUAL_GPU }, TinyVkWindow* window = VK_NULL_HANDLE, const std::vector<const char*> presentExtensionNames = {}, VkPhysicalDeviceFeatures deviceFeatures = { .multiDrawIndirect = VK_TRUE }) : deviceTypes(deviceTypes), presentExtensionNames(presentExtensionNames) {
+			TinyVkVulkanDevice(const std::string title, bool useComputeBit = false, const std::vector<VkPhysicalDeviceType> deviceTypes = { VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU, VK_PHYSICAL_DEVICE_TYPE_INTEGRATED_GPU, VK_PHYSICAL_DEVICE_TYPE_VIRTUAL_GPU }, TinyVkWindow* window = VK_NULL_HANDLE, const std::vector<const char*> presentExtensionNames = {}, VkPhysicalDeviceFeatures deviceFeatures = { .multiDrawIndirect = VK_TRUE })
+			: useComputeBit(useComputeBit), deviceTypes(deviceTypes), presentExtensionNames(presentExtensionNames) {
 				onDispose.hook(TinyVkCallback<bool>([this](bool forceDispose) {this->Disposable(forceDispose); }));
 				
 				VkPhysicalDeviceFeaturesUnionArray featuresA = { .vkfeatures = this->deviceFeatures }, featuresB = { .vkfeatures = deviceFeatures };
@@ -272,7 +283,6 @@
 				}
 
 				return (layersFound == validationLayers.size());
-				
 			}
 
 			#pragma endregion
@@ -289,14 +299,17 @@
 				vkGetPhysicalDeviceQueueFamilyProperties(device, &queueFamilyCount, VK_NULL_HANDLE);
 				std::vector<VkQueueFamilyProperties> queueFamilies(queueFamilyCount);
 				vkGetPhysicalDeviceQueueFamilyProperties(device, &queueFamilyCount, queueFamilies.data());
-
+				
 				TinyVkQueueFamily indices;
 				VkBool32 presentSupport = presentSurface != VK_NULL_HANDLE;
 				for (int i = 0; i < queueFamilies.size(); i++) {
 					vkGetPhysicalDeviceSurfaceSupportKHR(device, i, presentSurface, &presentSupport);
 					indices.graphicsFamily = (queueFamilies[i].queueFlags & VK_QUEUE_GRAPHICS_BIT)? i : indices.graphicsFamily;
 					indices.presentFamily = (presentSupport)? i: indices.presentFamily;
-					if (indices.HasGraphicsFamily() || (!presentSupport && (presentSupport && indices.HasPresentFamily()))) break;
+					indices.computeFamily = (queueFamilies[i].queueFlags & VK_QUEUE_COMPUTE_BIT)? i: indices.computeFamily;
+					//if (indices.HasGraphicsFamily() || (!presentSupport && (presentSupport && indices.HasPresentFamily()))) break;
+					if (indices.HasGraphicsFamily() && (!presentSupport || (presentSupport && indices.HasPresentFamily()))
+					&& (!useComputeBit || (useComputeBit && indices.HasComputeFamily()))) break;
 				}
 
 				return indices;
@@ -363,7 +376,8 @@
 				for(size_t i = 0; i < sizeof(VkPhysicalDeviceFeatures)/sizeof(VkBool32); i++)
 					if (featuresA.features[i] && !featuresB.features[i]) hasFeatures = false;
 
-				return indices.HasGraphicsFamily() && hasType && supportsExtensions && requiresPresent && hasFeatures;
+				bool hasCompute = (useComputeBit && indices.HasComputeFamily()) || !useComputeBit;
+				return indices.HasGraphicsFamily() && hasCompute && hasType && supportsExtensions && requiresPresent && hasFeatures;
 			}
 
 			/// <summary>Returns a Vector of suitable VkPhysicalDevices (GPU/iGPU).</summary>

@@ -51,12 +51,7 @@
 		
 		public:
 			std::timed_mutex buffer_lock;
-
 			TinyVkRenderContext& renderContext;
-			//TinyVkVulkanDevice& vkdevice;
-			//TinyVkCommandPool& commandPool;
-			//TinyVkGraphicsPipeline& graphicsPipeline;
-
 			VkBuffer buffer = VK_NULL_HANDLE;
 			VmaAllocation memory = VK_NULL_HANDLE;
 			VmaAllocationInfo description;

@@ -97,28 +97,28 @@
     #include <algorithm>
 
     #pragma region BACKEND_SYSTEMS
-    #include "./TinyVk_TimedGuard.hpp"
-    #include "./TinyVk_Invokable.hpp"
-    #include "./TinyVk_Utilities.hpp"
-    #include "./TinyVk_Disposable.hpp"
+        #include "./TinyVk_TimedGuard.hpp"
+        #include "./TinyVk_Invokable.hpp"
+        #include "./TinyVk_Utilities.hpp"
+        #include "./TinyVk_Disposable.hpp"
     #pragma endregion
     #pragma region WINDOW_INPUT_HANDLING
-    #include "./TinyVk_InputEnums.hpp"
-    #include "./TinyVk_Window.hpp"
+        #include "./TinyVk_InputEnums.hpp"
+        #include "./TinyVk_Window.hpp"
     #pragma endregion
     #pragma region VULKAN_INITIALIZATION
-    #include "./TinyVk_VulkanDevice.hpp"
-    #include "./TinyVk_CommandPool.hpp"
-    #include "./TinyVk_GraphicsPipeline.hpp"
+        #include "./TinyVk_VulkanDevice.hpp"
+        #include "./TinyVk_CommandPool.hpp"
+        #include "./TinyVk_GraphicsPipeline.hpp"
     #pragma endregion
     #pragma region TINYVULKAN_RENDERING
-    #include "./TinyVk_RenderContext.hpp"
-    #include "./TinyVk_Buffer.hpp"
-    #include "./TinyVk_Image.hpp"
-    #include "./TinyVk_ImageRenderer.hpp"
-    #include "./TinyVk_SwapChainRenderer.hpp"
-    #include "./TinyVk_ResourceQueue.hpp"
-    #include "./TinyVk_VertexMath.hpp"
+        #include "./TinyVk_RenderContext.hpp"
+        #include "./TinyVk_Buffer.hpp"
+        #include "./TinyVk_Image.hpp"
+        #include "./TinyVk_ImageRenderer.hpp"
+        #include "./TinyVk_SwapChainRenderer.hpp"
+        #include "./TinyVk_ResourceQueue.hpp"
+        #include "./TinyVk_VertexMath.hpp"
     #pragma endregion
 
 #endif
