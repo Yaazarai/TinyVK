@@ -1,3 +1,4 @@
+#define TINYVK_ALLOWS_POLLING_GAMEPADS
 #include "./TinyVulkan/TinyVulkan.hpp"
 using namespace tinyvk;
 
@@ -13,23 +14,20 @@ const TinyVkVertexDescription vertexDescription = TinyVkVertex::GetVertexDescrip
 const std::vector<VkDescriptorSetLayoutBinding> pushDescriptorLayouts = { TinyVkGraphicsPipeline::SelectPushDescriptorLayoutBinding(0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_VERTEX_BIT, 1) };
 
 int32_t TINYVULKAN_WINDOWMAIN {
-    TinyVkWindow window("Sample Application", 1440, 810, true, false);
+    TinyVkWindow window("Sample Application", 1920, 1080, true, false);
     TinyVkVulkanDevice vkdevice("Sample Application", false, rdeviceTypes, &window, window.QueryRequiredExtensions(TINYVK_VALIDATION_LAYERS));
     TinyVkCommandPool commandPool(vkdevice);
     TinyVkGraphicsPipeline pipeline(vkdevice, vertexDescription, defaultShaders, pushDescriptorLayouts, {}, false);
     TinyVkRenderContext renderContext(vkdevice, commandPool, pipeline);
     TinyVkSwapChainRenderer swapRenderer(renderContext, window, bufferingMode);
 
-    //VkClearValue clearColor { .color = { 0.0, 0.0, 0.0, 1.0f } };
-    //VkClearValue depthStencil { .depthStencil = { 1.0f, 0 } };
-
-    std::vector<TinyVkVertex> triangles = {
-        TinyVkVertex({0.0f,0.0f}, {240.0f,135.0f,               1.0f}, {1.0f,0.0f,0.0f,1.0f}),
-        TinyVkVertex({0.0f,0.0f}, {240.0f+960.0f,135.0f,        1.0f}, {0.0f,1.0f,0.0f,1.0f}),
-        TinyVkVertex({0.0f,0.0f}, {240.0f+960.0f,135.0f+540.0f, 1.0f}, {1.0f,0.0f,1.0f,1.0f}),
-        TinyVkVertex({0.0f,0.0f}, {240.0f,135.0f + 540.0f,      1.0f}, {0.0f,0.0f,1.0f,1.0f})
-    };
-    //std::vector<TinyVkVertex> triangles = TinyVkQuad::CreateWithOffsetExt(glm::vec2(240.0f, 135.0f), glm::vec3(960.0f, 540.0f, 0.0f));
+    //std::vector<TinyVkVertex> triangles = {
+    //    TinyVkVertex({0.0f,0.0f}, {240.0f,135.0f,               1.0f}, {1.0f,0.0f,0.0f,1.0f}),
+    //    TinyVkVertex({0.0f,0.0f}, {240.0f+960.0f,135.0f,        1.0f}, {0.0f,1.0f,0.0f,1.0f}),
+    //    TinyVkVertex({0.0f,0.0f}, {240.0f+960.0f,135.0f+540.0f, 1.0f}, {1.0f,0.0f,1.0f,1.0f}),
+    //    TinyVkVertex({0.0f,0.0f}, {240.0f,135.0f + 540.0f,      1.0f}, {0.0f,0.0f,1.0f,1.0f})
+    //};
+    std::vector<TinyVkVertex> triangles = TinyVkQuad::CreateWithOffsetExt(glm::vec2(960.0f/2.0, 540.0f/2.0), glm::vec3(960.0f, 540.0f, 0.0f));
     std::vector<uint32_t> indices = {0,1,2,2,3,0};
 
     size_t sizeofTriangles = TinyVkBuffer::GetSizeofVector<TinyVkVertex>(triangles);
@@ -44,14 +42,14 @@ int32_t TINYVULKAN_WINDOWMAIN {
     TinyVkBuffer projection2(renderContext, sizeof(glm::mat4), TinyVkBufferType::VKVMA_BUFFER_TYPE_UNIFORM);
 
     struct SwapFrame {
-        TinyVkBuffer &projection, &ibuffer, &vbuffer;
-        SwapFrame(TinyVkBuffer& projection, TinyVkBuffer& ibuffer, TinyVkBuffer& vbuffer) : projection(projection), ibuffer(ibuffer), vbuffer(vbuffer) {}
+        TinyVkBuffer &projection;
+        SwapFrame(TinyVkBuffer& projection) : projection(projection) {}
     };
 
     TinyVkResourceQueue<SwapFrame,static_cast<size_t>(bufferingMode)> queue(
         {
-            SwapFrame(projection1,ibuffer,vbuffer),
-            SwapFrame(projection2,ibuffer,vbuffer)
+            SwapFrame(projection1),
+            SwapFrame(projection2)
         },
         TinyVkCallback<size_t&>([&swapRenderer](size_t& frameIndex){ frameIndex = swapRenderer.GetSyncronizedFrameIndex(); }),
         TinyVkCallback<SwapFrame&>([](SwapFrame& resource){})
@@ -84,15 +82,25 @@ int32_t TINYVULKAN_WINDOWMAIN {
     // TESTING RENDERCONTEXT CHANGES WITH THE SWAPCHAIN RENDERER.
     int angle = 0;
     swapRenderer.onRenderEvents.hook(TinyVkCallback<TinyVkCommandPool&>(
-        [&angle, &indices, &vkdevice, &window, &swapRenderer, &pipeline, &queue /*, &clearColor, &depthStencil*/](TinyVkCommandPool& commandPool) {
+        [&angle, &indices, &vkdevice, &window, &swapRenderer, &pipeline, &queue, &vbuffer, &ibuffer](TinyVkCommandPool& commandPool) {
         auto frame = queue.GetFrameResource();
 
         auto commandBuffer = commandPool.LeaseBuffer();
-        swapRenderer.BeginRecordCmdBuffer(commandBuffer.first /*, clearColor, depthStencil*/);
+        swapRenderer.BeginRecordCmdBuffer(commandBuffer.first);
         
-        int offsetx, offsety;
-        offsetx = glm::sin(glm::radians(static_cast<glm::float32>(angle))) * 64;
-        offsety = glm::cos(glm::radians(static_cast<glm::float32>(angle))) * 64;
+        int offsetx = 0, offsety = 0;
+        //offsetx = glm::sin(glm::radians(static_cast<glm::float32>(angle))) * 64;
+        //offsety = glm::cos(glm::radians(static_cast<glm::float32>(angle))) * 64;
+
+        offsetx = glfwGetGamepadAxis(TinyVkGamepads::GPAD_01,TinyVkGamepadAxis::AXIS_LEFTX) * 64;
+        offsety = glfwGetGamepadAxis(TinyVkGamepads::GPAD_01,TinyVkGamepadAxis::AXIS_LEFTY) * 64;
+
+        //double mousex, mousey;
+        //glfwGetCursorPos(window.GetHandle(), &mousex, &mousey);
+        //int leftclick = glfwGetMouseButton(window.GetHandle(), GLFW_MOUSE_BUTTON_1);
+        //offsetx = int(mousex) * leftclick;
+        //offsety = int(mousey) * leftclick;
+
         glm::mat4 camera = TinyVkMath::Project2D(window.GetWidth(), window.GetHeight(), offsetx, offsety, 1.0, 0.0);
         frame.projection.StageBufferData(&camera, sizeof(glm::mat4), 0, 0);
         VkDescriptorBufferInfo cameraDescriptorInfo = frame.projection.GetBufferDescriptor();
@@ -100,9 +108,9 @@ int32_t TINYVULKAN_WINDOWMAIN {
         swapRenderer.PushDescriptorSet(commandBuffer.first, { cameraDescriptor });
         
         VkDeviceSize offsets[] = { 0 };
-        swapRenderer.CmdBindGeometry(commandBuffer.first, &frame.vbuffer.buffer, frame.ibuffer.buffer, offsets);
+        swapRenderer.CmdBindGeometry(commandBuffer.first, &vbuffer.buffer, ibuffer.buffer, offsets);
         swapRenderer.CmdDrawGeometry(commandBuffer.first, true, 1, 0, indices.size(), 0, 0);    
-        swapRenderer.EndRecordCmdBuffer(commandBuffer.first /*, clearColor, depthStencil*/);
+        swapRenderer.EndRecordCmdBuffer(commandBuffer.first);
         
         angle += 1;
 

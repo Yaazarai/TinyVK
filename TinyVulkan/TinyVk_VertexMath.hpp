@@ -56,7 +56,7 @@
                 // Defining the TOP and BOTTOM upside down will provide the proper translation transform for scaling
                 // with Vulkan due to Vulkan's inverted Y-Axis without having to transpose the matrix.
                 glm::mat4 projection = glm::ortho(0.0, width, 0.0, height, znear, zfar);
-                return glm::translate(projection, glm::vec3(-camerax, -cameray, 0.0));
+                return glm::translate(projection, glm::vec3(camerax, cameray, 0.0));
 
             }
             
