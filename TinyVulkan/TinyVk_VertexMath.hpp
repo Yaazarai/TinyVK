@@ -102,7 +102,13 @@
                 return (pi - glm::abs(delta - pi)) * sign;
                 #endif
             }
-	    };
+	    
+			template<typename T>
+			static size_t GetSizeofVector(std::vector<T> vector) { return vector.size() * sizeof(T); }
+
+			template<typename T, size_t S>
+			static size_t GetSizeofArray(std::array<T,S> array) { return S * sizeof(T); }
+        };
 
         /// <summary>Creates non-indexed quads in the format of std::vector of TinyVkVertex.</summary>
         class TinyVkQuad {

@@ -38,10 +38,9 @@
 				VK_KHR_DEPTH_STENCIL_RESOLVE_EXTENSION_NAME,
 				VK_KHR_DYNAMIC_RENDERING_EXTENSION_NAME,
 				VK_KHR_PUSH_DESCRIPTOR_EXTENSION_NAME,
-				// VK_KHR_MAINTENANCE_5_EXTENSION_NAME (commented out until maintenance5 is out of driver beta)
 			};
 			const std::vector<VkPhysicalDeviceType> deviceTypes;
-			VkPhysicalDeviceFeatures deviceFeatures = {};
+			VkPhysicalDeviceFeatures deviceFeatures {};
 			std::vector<const char*> presentExtensionNames;
 
 			VkApplicationInfo appInfo{};
@@ -55,7 +54,7 @@
 
 			/// <summary>Creates the underlying Vulkan Instance w/ Required Extensions.</summary>
 			void CreateVkInstance(const std::string& title) {
-				VkApplicationInfo appInfo = {};
+				VkApplicationInfo appInfo {};
 				appInfo.sType = VK_STRUCTURE_TYPE_APPLICATION_INFO;
 				appInfo.pApplicationName = title.c_str();
 				appInfo.applicationVersion = TVK_RENDERER_VERSION;
@@ -63,15 +62,20 @@
 				appInfo.engineVersion = TVK_RENDERER_VERSION;
 				appInfo.apiVersion = TVK_RENDERER_VERSION;
 
-				VkInstanceCreateInfo createInfo = {};
+				VkInstanceCreateInfo createInfo {};
 				createInfo.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;
 				createInfo.pApplicationInfo = &appInfo;
 
 				#if TVK_VALIDATION_LAYERS
-					if (!QueryValidationLayerSupport())
+					if (!QueryValidationLayerSupport()) {
 						throw std::runtime_error("TinyVulkan: Failed to initialize validation layers!");
+					} else {
+						std::cout << "TinyVulkan: Enabled VBalidation Layers:" << std::endl;
+						for(const char* layer : validationLayers)
+							std::cout << "\t" << layer << std::endl;
+					}
 
-					VkDebugUtilsMessengerCreateInfoEXT debugCreateInfo = {};
+					VkDebugUtilsMessengerCreateInfoEXT debugCreateInfo {};
 					debugCreateInfo.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT;
 					debugCreateInfo.messageSeverity = VK_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT;
 					debugCreateInfo.messageType = VK_DEBUG_UTILS_MESSAGE_TYPE_GENERAL_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT;
@@ -141,10 +145,10 @@
 					throw std::runtime_error("TinyVulkan: Failed to find a suitable GPU!");
 				
 				#if TVK_VALIDATION_LAYERS
-					VkPhysicalDevicePushDescriptorPropertiesKHR pushDescriptorProps = {};
+					VkPhysicalDevicePushDescriptorPropertiesKHR pushDescriptorProps {};
 					pushDescriptorProps.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PUSH_DESCRIPTOR_PROPERTIES_KHR;
 
-					VkPhysicalDeviceProperties2 deviceProperties = {};
+					VkPhysicalDeviceProperties2 deviceProperties {};
 					deviceProperties.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2;
 					deviceProperties.pNext = &pushDescriptorProps;
 
@@ -157,7 +161,7 @@
 					std::cout << "\tPush Descriptor Memory: " << pushDescriptorProps.maxPushDescriptors << " Count" << std::endl;
 					
 					TinyVkQueueFamily indices = FindQueueFamilies(physicalDevice);
-					std::cout << "\tCompute Pipeline:       " << (useComputeBit?"true (e)":"false (e)") << " / " << (indices.HasComputeFamily()?"true (c)":"false (c)") << std::endl;
+					std::cout << "\tCompute Pipeline:       " << (useComputeBit?"true (enabled)":"false (enabled)") << " / " << (indices.HasComputeFamily()?"true (compatible)":"false (compatible)") << std::endl;
 				#endif
 			}
 			
@@ -205,7 +209,7 @@
 			
 			/// <summary>Creates the VMAllocator for AMD's GPU memory handling API.</summary>
 			void CreateVMAllocator() {
-				VmaAllocatorCreateInfo allocatorCreateInfo = {};
+				VmaAllocatorCreateInfo allocatorCreateInfo {};
 				allocatorCreateInfo.vulkanApiVersion = TVK_RENDERER_VERSION;
 				allocatorCreateInfo.physicalDevice = physicalDevice;
 				allocatorCreateInfo.device = logicalDevice;
@@ -273,9 +277,12 @@
 				std::vector<VkLayerProperties> availableLayers(layersCount);
 				vkEnumerateInstanceLayerProperties(&layersCount, availableLayers.data());
 
+				#if TVK_VALIDATION_LAYERS
+					std::cout << "TinyVulkan: Available Validation Layers:" << std::endl;
+				#endif
 				for (const auto& layerProperties : availableLayers) {
 					#if TVK_VALIDATION_LAYERS
-					std::cout << layerProperties.layerName << std::endl;
+					std::cout << "\t" << layerProperties.layerName << std::endl;
 					#endif
 
 					for (const std::string layerName : validationLayers)

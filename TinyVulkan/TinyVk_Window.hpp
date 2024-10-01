@@ -214,8 +214,10 @@
 			/// <summary>Returns the window's framebuffer height.</summary>
 			int GetHeight() { return std::max(hwndHeight, 1); }
 
+			/// <summary>Returns the window's screen X-position on the relevant monitor.</summary>
 			int GetXpos() { return hwndXpos; }
 
+			/// <summary>Returns the window's screen Y-position on the relevant monitor.</summary>
 			int GetYpos() { return hwndYpos; }
 
 			/// <summary>Executes functions in the main window loop (w/ ref to bool to exit loop as needed).</summary>

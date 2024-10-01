@@ -239,7 +239,7 @@
 					TinyVkImage* depthImage = optionalDepthImages[currentSyncFrame];
 					if (depthImage->width != imageExtent.width || depthImage->height != imageExtent.height) {
 						depthImage->Disposable(false);
-						depthImage->ReCreateImage(imageExtent.width, imageExtent.height, depthImage->isDepthImage, renderContext.graphicsPipeline.QueryDepthFormat(), TINYVK_DEPTHSTENCIL_ATTACHMENT_OPTIMAL, VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE, VK_IMAGE_ASPECT_DEPTH_BIT);
+						depthImage->ReCreateImage(depthImage->imageType, imageExtent.width, imageExtent.height, renderContext.graphicsPipeline.QueryDepthFormat(), VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE);
 					}
 				}
 
@@ -370,7 +370,7 @@
 					depthImageRenderContext = new TinyVkRenderContext(renderContext.vkdevice, *depthImagePool, renderContext.graphicsPipeline);
 					
 					for(size_t i = 0; i < static_cast<size_t>(bufferingMode); i++)
-						optionalDepthImages.push_back(new TinyVkImage(*depthImageRenderContext, imageExtent.width, imageExtent.height, true, renderContext.graphicsPipeline.QueryDepthFormat(), TINYVK_DEPTHSTENCIL_ATTACHMENT_OPTIMAL, VK_SAMPLER_ADDRESS_MODE_REPEAT, VK_IMAGE_ASPECT_DEPTH_BIT));
+						optionalDepthImages.push_back(new TinyVkImage(*depthImageRenderContext, TinyVkImageType::TINYVK_IMAGE_TYPE_DEPTHSTENCIL, imageExtent.width, imageExtent.height, VK_NULL_HANDLE, renderContext.graphicsPipeline.QueryDepthFormat(), VK_SAMPLER_ADDRESS_MODE_REPEAT));
 				}
 
 				CreateSwapChain();
