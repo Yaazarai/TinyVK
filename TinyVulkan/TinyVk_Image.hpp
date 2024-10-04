@@ -332,9 +332,9 @@
 				TinyVkBuffer stagingBuffer = TinyVkBuffer(renderContext, dataSize, TinyVkBufferType::TINYVK_BUFFER_TYPE_STAGING);
 				
 				memcpy(stagingBuffer.description.pMappedData, data, (size_t)dataSize);
-				TransitionLayoutCmd(TinyVkImageLayout::TINYVK_TRANSFER_DST);
+				TransitionLayoutCmd(TinyVkImageLayout::TINYVK_TRANSFER_DST, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT);
 				TransferFromBufferCmd(stagingBuffer);
-				TransitionLayoutCmd(TinyVkImageLayout::TINYVK_SHADER_READONLY);
+				TransitionLayoutCmd(TinyVkImageLayout::TINYVK_SHADER_READONLY, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT);
 
 				stagingBuffer.Dispose();
 			}

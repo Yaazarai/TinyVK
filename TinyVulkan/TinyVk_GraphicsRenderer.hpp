@@ -96,7 +96,7 @@
 				if (vkBeginCommandBuffer(commandBuffer, &beginInfo) != VK_SUCCESS)
 					throw std::runtime_error("TinyVulkan: Failed to record [begin] to command buffer!");
                 
-                renderTarget->TransitionLayoutCmd(TinyVkImageLayout::TINYVK_COLOR_ATTACHMENT);
+                renderTarget->TransitionLayoutCmd(TinyVkImageLayout::TINYVK_COLOR_ATTACHMENT, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT);
 
 				VkRenderingAttachmentInfoKHR colorAttachmentInfo{};
 				colorAttachmentInfo.sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO_KHR;
@@ -122,7 +122,7 @@
                     if (optionalDepthImage == VK_NULL_HANDLE)
                         throw std::runtime_error("TinyVulkan: Trying to render with TinyVkGraphicsRenderer without depth image [VK_NULL_HANDLE]! on depth testing enabled graphics pipeline!");
 					
-                    optionalDepthImage->TransitionLayoutCmd(TinyVkImageLayout::TINYVK_DEPTHSTENCIL_ATTACHMENT, VK_PIPELINE_STAGE_2_EARLY_FRAGMENT_TESTS_BIT, VK_PIPELINE_STAGE_2_EARLY_FRAGMENT_TESTS_BIT);
+                    optionalDepthImage->TransitionLayoutCmd(TinyVkImageLayout::TINYVK_DEPTHSTENCIL_ATTACHMENT, VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT, VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT);
 
                     depthStencilAttachmentInfo.sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO_KHR;
 					depthStencilAttachmentInfo.imageView = optionalDepthImage->imageView;
@@ -154,13 +154,13 @@
 				if (vkCmdEndRenderingEKHR(renderContext.vkdevice.GetInstance(), commandBuffer) != VK_SUCCESS)
 					throw std::runtime_error("TinyVulkan: Failed to record [end] to rendering!");
 
-				renderTarget->TransitionLayoutCmd(TinyVkImageLayout::TINYVK_SHADER_READONLY);
+				renderTarget->TransitionLayoutCmd(TinyVkImageLayout::TINYVK_SHADER_READONLY, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT);
                 
 				if (renderContext.graphicsPipeline.DepthTestingIsEnabled()) {
                     if (optionalDepthImage == VK_NULL_HANDLE)
                         throw std::runtime_error("TinyVulkan: Trying to render with TinyVkGraphicsRenderer without depth image [VK_NULL_HANDLE] on depth testing enabled graphics pipeline!");
 					
-                    optionalDepthImage->TransitionLayoutCmd(TinyVkImageLayout::TINYVK_DEPTHSTENCIL_ATTACHMENT, VK_PIPELINE_STAGE_2_LATE_FRAGMENT_TESTS_BIT, VK_PIPELINE_STAGE_2_LATE_FRAGMENT_TESTS_BIT);
+                    optionalDepthImage->TransitionLayoutCmd(TinyVkImageLayout::TINYVK_DEPTHSTENCIL_ATTACHMENT, VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT, VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT);
 				}
 
 				if (vkEndCommandBuffer(commandBuffer) != VK_SUCCESS)
@@ -220,3 +220,38 @@
         };
     }
 #endif
+
+/*
+    Vulkan Graphics Pipeline Order:
+		VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT = 0x00000001,
+		VK_PIPELINE_STAGE_DRAW_INDIRECT_BIT = 0x00000002,
+		VK_PIPELINE_STAGE_VERTEX_INPUT_BIT = 0x00000004,
+		VK_PIPELINE_STAGE_VERTEX_SHADER_BIT = 0x00000008,
+		VK_PIPELINE_STAGE_TESSELLATION_CONTROL_SHADER_BIT = 0x00000010,
+		VK_PIPELINE_STAGE_TESSELLATION_EVALUATION_SHADER_BIT = 0x00000020,
+		VK_PIPELINE_STAGE_GEOMETRY_SHADER_BIT = 0x00000040,
+		VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT = 0x00000080,
+		VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT = 0x00000100,
+		VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT = 0x00000200,
+		VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT = 0x00000400,
+		VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT = 0x00000800,
+		VK_PIPELINE_STAGE_TRANSFER_BIT = 0x00001000,
+		VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT = 0x00002000
+	
+	Top of Pipe
+		Draw Indirect
+
+		Vertex Input
+		Vertex Shader
+
+		Tessellation Shader
+		Geometry Shader
+
+		Fragment Shader
+		Early Fragment Test
+		Late Fragment Test
+		Color Attachement Output
+
+		Transfer
+	Bottom of Pipe
+*/
