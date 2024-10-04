@@ -4,6 +4,13 @@
 	#include "./TinyVulkan.hpp"
 
 	namespace TINYVULKAN_NAMESPACE {
+		///<summary>Submission stage of the command buffer (for getting pipeline barrier info).</summary>
+		enum class TinyVkCmdBufferSubmitStage {
+			TINYVK_BEGIN,       /// Pre-Render & Pre-Pipeline-Access & Pipeline-Acess submit stage.
+			TINYVK_END,         /// Post-Render & Post-Pipeline-Acess submit stage.
+			TINYVK_BEGIN_TO_END /// No-Pipeline-Access submit stage (for layout transitions).
+		};
+
 		/// <summary>Pool of managed rentable VkCommandBuffers for performing rendering/transfer operations.</summary>
 		class TinyVkCommandPool : public TinyVkDisposable {
 		private:

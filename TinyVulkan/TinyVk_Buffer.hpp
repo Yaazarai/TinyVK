@@ -29,8 +29,8 @@
 			TINYVK_BUFFER_TYPE_VERTEX,	 /// For passing mesh/triangle vertices for rendering to shaders.
 			TINYVK_BUFFER_TYPE_INDEX,	 /// For indexing Vertex information in Vertex Buffers.
 			TINYVK_BUFFER_TYPE_UNIFORM,	 /// For passing uniform/shader variable data to shaders.
-			TINYVK_BUFFER_TYPE_STAGING,	 /// For tranfering CPU bound buffer data to the GPU.
 			TINYVK_BUFFER_TYPE_INDIRECT, /// For writing VkIndirectCommand's to a buffer for Indirect drawing.
+			TINYVK_BUFFER_TYPE_STAGING,	 /// For tranfering CPU bound buffer data to the GPU.
 			TINYVK_BUFFER_TYPE_STORAGE,  /// For writing data from fragment/compute shaders.
 		};
 
@@ -161,31 +161,111 @@
 				stagingBuffer.Dispose();
 			}
 
-			/// <summary>Get the pipeline barrier info for resource synchronization in buffer pipeline barrier pNext chain.</summary>
-			VkBufferMemoryBarrier GetPipelineBarrier() {
-				VkAccessFlags accessFlags;
-
-				switch(bufferType) {
-					case TinyVkBufferType::TINYVK_BUFFER_TYPE_STAGING:
-					accessFlags = VK_ACCESS_TRANSFER_READ_BIT;
-					break;
-					case TinyVkBufferType::TINYVK_BUFFER_TYPE_STORAGE:
-					accessFlags = VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_SHADER_WRITE_BIT;
-					break;
-					default:
-					accessFlags = VK_ACCESS_SHADER_READ_BIT;
-					break;
+			/// <summary>Get pipeline stages relative to the current image layout and command buffer recording stage.</summary>
+			void GetPipelineBarrierStages(TinyVkCmdBufferSubmitStage cmdBufferStage, VkPipelineStageFlags& srcStage, VkPipelineStageFlags& dstStage, VkAccessFlags& srcAccessMask, VkAccessFlags& dstAccessMask) {
+				if (cmdBufferStage == TinyVkCmdBufferSubmitStage::TINYVK_BEGIN) {
+					switch(bufferType) {
+						case TinyVkBufferType::TINYVK_BUFFER_TYPE_STAGING:
+						srcAccessMask = VK_ACCESS_NONE;
+						dstAccessMask = VK_ACCESS_NONE;
+						srcStage = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
+						dstStage = VK_PIPELINE_STAGE_TRANSFER_BIT;
+						break;
+						case TinyVkBufferType::TINYVK_BUFFER_TYPE_STORAGE:
+						srcAccessMask = VK_ACCESS_NONE;
+						dstAccessMask = VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_SHADER_WRITE_BIT;
+						srcStage = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
+						dstStage = VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT;
+						break;
+						case TinyVkBufferType::TINYVK_BUFFER_TYPE_VERTEX:
+						case TinyVkBufferType::TINYVK_BUFFER_TYPE_INDEX:
+						srcAccessMask = VK_ACCESS_NONE;
+						dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
+						srcStage = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
+						dstStage = VK_PIPELINE_STAGE_VERTEX_INPUT_BIT;
+						break;
+						case TinyVkBufferType::TINYVK_BUFFER_TYPE_UNIFORM:
+						srcAccessMask = VK_ACCESS_NONE;
+						dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
+						srcStage = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
+						dstStage = VK_PIPELINE_STAGE_VERTEX_INPUT_BIT | VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
+						break;
+						case TinyVkBufferType::TINYVK_BUFFER_TYPE_INDIRECT:
+						default:
+						srcAccessMask = VK_ACCESS_NONE;
+						dstAccessMask = VK_ACCESS_INDIRECT_COMMAND_READ_BIT;
+						srcStage = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
+						dstStage = VK_PIPELINE_STAGE_DRAW_INDIRECT_BIT;
+						break;
+					}
 				}
 
-				return VkBufferMemoryBarrier {
+				if (cmdBufferStage == TinyVkCmdBufferSubmitStage::TINYVK_END) {
+					switch(bufferType) {
+						case TinyVkBufferType::TINYVK_BUFFER_TYPE_STAGING:
+						srcAccessMask = VK_ACCESS_NONE;
+						dstAccessMask = VK_ACCESS_NONE;
+						srcStage = VK_PIPELINE_STAGE_TRANSFER_BIT;
+						dstStage = VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT;
+						break;
+						case TinyVkBufferType::TINYVK_BUFFER_TYPE_STORAGE:
+						srcAccessMask = VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_SHADER_WRITE_BIT;
+						dstAccessMask = VK_ACCESS_NONE;
+						srcStage = VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT;
+						dstStage = VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT;
+						break;
+						case TinyVkBufferType::TINYVK_BUFFER_TYPE_VERTEX:
+						case TinyVkBufferType::TINYVK_BUFFER_TYPE_INDEX:
+						srcAccessMask = VK_ACCESS_SHADER_READ_BIT;
+						dstAccessMask = VK_ACCESS_NONE;
+						srcStage = VK_PIPELINE_STAGE_VERTEX_INPUT_BIT;
+						dstStage = VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT;
+						break;
+						case TinyVkBufferType::TINYVK_BUFFER_TYPE_UNIFORM:
+						srcAccessMask = VK_ACCESS_SHADER_READ_BIT;
+						dstAccessMask = VK_ACCESS_NONE;
+						srcStage = VK_PIPELINE_STAGE_VERTEX_INPUT_BIT | VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
+						dstStage = VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT;
+						break;
+						case TinyVkBufferType::TINYVK_BUFFER_TYPE_INDIRECT:
+						default:
+						srcAccessMask = VK_ACCESS_INDIRECT_COMMAND_READ_BIT;
+						dstAccessMask = VK_ACCESS_NONE;
+						srcStage = VK_PIPELINE_STAGE_DRAW_INDIRECT_BIT;
+						dstStage = VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT;
+						break;
+					}
+				}
+
+				if (cmdBufferStage == TinyVkCmdBufferSubmitStage::TINYVK_BEGIN_TO_END) {
+					srcStage = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
+					dstStage = VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT;
+					srcAccessMask = VK_ACCESS_NONE;
+					dstAccessMask = VK_ACCESS_NONE;
+				}
+			}
+			
+			/// <summary>Get the pipeline barrier info for resource synchronization in buffer pipeline barrier pNext chain.</summary>
+			VkBufferMemoryBarrier GetPipelineBarrier(TinyVkCmdBufferSubmitStage cmdBufferStage, VkPipelineStageFlags& srcStage, VkPipelineStageFlags& dstStage) {
+				VkBufferMemoryBarrier pipelineBarrier {
 					.sType = VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER_2,
-					.srcAccessMask = accessFlags, .dstAccessMask = accessFlags,
+					.srcAccessMask = VK_ACCESS_NONE, .dstAccessMask = VK_ACCESS_NONE,
 					.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED, .dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
 					.size = VK_WHOLE_SIZE, .offset = 0,
 					.buffer = buffer,
 				};
+
+				GetPipelineBarrierStages(cmdBufferStage, srcStage, dstStage, pipelineBarrier.srcAccessMask, pipelineBarrier.dstAccessMask);
+				return pipelineBarrier;
 			}
 
+			/// <summary>Get the pipeline barrier info and submit call of vkCmdPipelineBarrier to VkCommandBuffer.</summary>
+			void MemoryPipelineBarrier(VkCommandBuffer cmdBuffer, TinyVkCmdBufferSubmitStage cmdBufferStage) {
+				VkPipelineStageFlags srcStage, dstStage;
+				VkBufferMemoryBarrier pipelineBarrier = GetPipelineBarrier(cmdBufferStage, srcStage, dstStage);
+				vkCmdPipelineBarrier(cmdBuffer, srcStage, dstStage, 0, 0, VK_NULL_HANDLE, 1, &pipelineBarrier, 0, VK_NULL_HANDLE);
+			}
+			
 			/// <summary>Creates the data descriptor that represents this buffer when passing into graphicspipeline.SelectWrite*Descriptor().</summary>
 			VkDescriptorBufferInfo GetBufferDescriptor(VkDeviceSize offset = 0, VkDeviceSize range = VK_WHOLE_SIZE) { return { buffer, offset, range }; }
 

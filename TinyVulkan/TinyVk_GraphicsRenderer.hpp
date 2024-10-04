@@ -87,7 +87,7 @@
 			}
             
             /// <summary>Begins recording render commands to the provided command buffer.</summary>
-			void BeginRecordCmdBuffer(VkCommandBuffer commandBuffer, const VkClearValue clearColor = { 0.0f, 0.0f, 0.0f, 1.0f }, const VkClearValue depthStencil = { .depthStencil = { 1.0f, 0 } }) {
+			void BeginRecordCmdBuffer(VkCommandBuffer commandBuffer, std::vector<TinyVkImage*> syncImages = {}, std::vector<TinyVkBuffer*> syncBuffers = {}, const VkClearValue clearColor = { 0.0f, 0.0f, 0.0f, 1.0f }, const VkClearValue depthStencil = { .depthStencil = { 1.0f, 0 } }) {
 				VkCommandBufferBeginInfo beginInfo{};
 				beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
 				beginInfo.flags = VK_COMMAND_BUFFER_USAGE_SIMULTANEOUS_USE_BIT;
@@ -96,7 +96,7 @@
 				if (vkBeginCommandBuffer(commandBuffer, &beginInfo) != VK_SUCCESS)
 					throw std::runtime_error("TinyVulkan: Failed to record [begin] to command buffer!");
                 
-                renderTarget->TransitionLayoutCmd(TinyVkImageLayout::TINYVK_COLOR_ATTACHMENT, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT);
+                renderTarget->TransitionLayoutBarrier(commandBuffer, TinyVkCmdBufferSubmitStage::TINYVK_BEGIN, TinyVkImageLayout::TINYVK_COLOR_ATTACHMENT);
 
 				VkRenderingAttachmentInfoKHR colorAttachmentInfo{};
 				colorAttachmentInfo.sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO_KHR;
@@ -122,7 +122,7 @@
                     if (optionalDepthImage == VK_NULL_HANDLE)
                         throw std::runtime_error("TinyVulkan: Trying to render with TinyVkGraphicsRenderer without depth image [VK_NULL_HANDLE]! on depth testing enabled graphics pipeline!");
 					
-                    optionalDepthImage->TransitionLayoutCmd(TinyVkImageLayout::TINYVK_DEPTHSTENCIL_ATTACHMENT, VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT, VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT);
+                    optionalDepthImage->TransitionLayoutBarrier(commandBuffer, TinyVkCmdBufferSubmitStage::TINYVK_BEGIN, TinyVkImageLayout::TINYVK_DEPTHSTENCIL_ATTACHMENT);
 
                     depthStencilAttachmentInfo.sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO_KHR;
 					depthStencilAttachmentInfo.imageView = optionalDepthImage->imageView;
@@ -150,17 +150,17 @@
 			}
 
 			/// <summary>Ends recording render commands to the provided command buffer.</summary>
-			void EndRecordCmdBuffer(VkCommandBuffer commandBuffer, const VkClearValue clearColor = { 0.0f, 0.0f, 0.0f, 1.0f }, const VkClearValue depthStencil = { .depthStencil = { 1.0f, 0 } }) {
+			void EndRecordCmdBuffer(VkCommandBuffer commandBuffer, std::vector<TinyVkImage*> syncImages = {}, std::vector<TinyVkBuffer*> syncBuffers = {}, const VkClearValue clearColor = { 0.0f, 0.0f, 0.0f, 1.0f }, const VkClearValue depthStencil = { .depthStencil = { 1.0f, 0 } }) {
 				if (vkCmdEndRenderingEKHR(renderContext.vkdevice.GetInstance(), commandBuffer) != VK_SUCCESS)
 					throw std::runtime_error("TinyVulkan: Failed to record [end] to rendering!");
 
-				renderTarget->TransitionLayoutCmd(TinyVkImageLayout::TINYVK_SHADER_READONLY, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT);
+				renderTarget->TransitionLayoutBarrier(commandBuffer, TinyVkCmdBufferSubmitStage::TINYVK_END, TinyVkImageLayout::TINYVK_PRESENT_SRC);
                 
 				if (renderContext.graphicsPipeline.DepthTestingIsEnabled()) {
                     if (optionalDepthImage == VK_NULL_HANDLE)
                         throw std::runtime_error("TinyVulkan: Trying to render with TinyVkGraphicsRenderer without depth image [VK_NULL_HANDLE] on depth testing enabled graphics pipeline!");
 					
-                    optionalDepthImage->TransitionLayoutCmd(TinyVkImageLayout::TINYVK_DEPTHSTENCIL_ATTACHMENT, VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT, VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT);
+                    optionalDepthImage->TransitionLayoutBarrier(commandBuffer, TinyVkCmdBufferSubmitStage::TINYVK_END, TinyVkImageLayout::TINYVK_DEPTHSTENCIL_ATTACHMENT);
 				}
 
 				if (vkEndCommandBuffer(commandBuffer) != VK_SUCCESS)

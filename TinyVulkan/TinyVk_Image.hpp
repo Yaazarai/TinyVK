@@ -25,6 +25,7 @@
 					Finally for use in shaders you need to change the layout to VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL.
 		*/
 
+		///<summary>Specifies the [layout] in GPU memory of image and how it can be used..</summary>
 		enum TinyVkImageLayout {
 			TINYVK_TRANSFER_SRC = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
 			TINYVK_TRANSFER_DST = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
@@ -32,8 +33,10 @@
 			TINYVK_DEPTHSTENCIL_ATTACHMENT = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
 			TINYVK_UNDEFINED = VK_IMAGE_LAYOUT_UNDEFINED,
 			TINYVK_COLOR_ATTACHMENT = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
-			TINYVK_GENERAL = VK_IMAGE_LAYOUT_GENERAL
+			TINYVK_GENERAL = VK_IMAGE_LAYOUT_GENERAL,
+			TINYVK_PRESENT_SRC = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR
 		};
+		///<summary>Specifies the [type] of image that this TinyVkImage represents.</summary>
 		enum class TinyVkImageType {
 			TINYVK_IMAGE_TYPE_SWAPCHAIN,       /// For writing or presenting with Swapchain (screen).
 			TINYVK_IMAGE_TYPE_COLORATTACHMENT, /// For reading OR writing from/to VkImage via Fragment shaders.
@@ -206,10 +209,128 @@
 				if (newLayout != TinyVkImageLayout::TINYVK_UNDEFINED)
 					TransitionLayoutCmd(newLayout);
 			}
+			
+			/// <summary>Get pipeline stages relative to the current image layout and command buffer recording stage.</summary>
+			void GetPipelineBarrierStages(TinyVkImageLayout layout, TinyVkCmdBufferSubmitStage cmdBufferStage, VkPipelineStageFlags& srcStage, VkPipelineStageFlags& dstStage, VkAccessFlags& srcAccessMask, VkAccessFlags& dstAccessMask) {
+				if (cmdBufferStage == TinyVkCmdBufferSubmitStage::TINYVK_BEGIN) {
+					switch (layout) {
+						case TinyVkImageLayout::TINYVK_COLOR_ATTACHMENT:
+							srcStage = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
+							dstStage = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+							srcAccessMask = VK_ACCESS_NONE;
+							dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT | VK_ACCESS_COLOR_ATTACHMENT_READ_BIT;
+						break;
+						case TinyVkImageLayout::TINYVK_PRESENT_SRC:
+							srcStage = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
+							dstStage = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+							srcAccessMask = VK_ACCESS_NONE;
+							dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_READ_BIT;
+						break;
+						case TinyVkImageLayout::TINYVK_TRANSFER_SRC:
+							srcStage = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
+							dstStage = VK_PIPELINE_STAGE_TRANSFER_BIT;
+							srcAccessMask = VK_ACCESS_NONE;
+							dstAccessMask = VK_ACCESS_TRANSFER_READ_BIT;
+						break;
+						case TinyVkImageLayout::TINYVK_TRANSFER_DST:
+							srcStage = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
+							dstStage = VK_PIPELINE_STAGE_TRANSFER_BIT;
+							srcAccessMask = VK_ACCESS_NONE;
+							dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+						break;
+						case TinyVkImageLayout::TINYVK_SHADER_READONLY:
+							srcStage = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
+							dstStage = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
+							srcAccessMask = VK_ACCESS_NONE;
+							dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
+						break;
+						case TinyVkImageLayout::TINYVK_DEPTHSTENCIL_ATTACHMENT:
+							srcStage = VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT;
+							dstStage = VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT;
+							srcAccessMask = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
+							dstAccessMask = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
+						break;
+						case TinyVkImageLayout::TINYVK_GENERAL:
+							srcStage = VK_PIPELINE_STAGE_ALL_GRAPHICS_BIT;
+							dstStage = VK_PIPELINE_STAGE_ALL_GRAPHICS_BIT;
+							srcAccessMask = VK_ACCESS_SHADER_WRITE_BIT | VK_ACCESS_SHADER_READ_BIT;
+							dstAccessMask = VK_ACCESS_SHADER_WRITE_BIT | VK_ACCESS_SHADER_READ_BIT;
+						break;
+						case TinyVkImageLayout::TINYVK_UNDEFINED:
+						default:
+							srcStage = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
+							dstStage = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+							srcAccessMask = VK_ACCESS_NONE;
+							dstAccessMask = VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_SHADER_WRITE_BIT;;
+						break;
+					}
+				}
+				
+				if (cmdBufferStage == TinyVkCmdBufferSubmitStage::TINYVK_END) {
+					switch (layout) {
+						case TinyVkImageLayout::TINYVK_COLOR_ATTACHMENT:
+							srcStage = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+							dstStage = VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT;
+							srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT | VK_ACCESS_COLOR_ATTACHMENT_READ_BIT;
+							dstAccessMask = VK_ACCESS_NONE;
+						break;
+						case TinyVkImageLayout::TINYVK_PRESENT_SRC:
+							srcStage = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+							dstStage = VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT;
+							srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_READ_BIT;
+							dstAccessMask = VK_ACCESS_NONE;
+						break;
+						case TinyVkImageLayout::TINYVK_TRANSFER_SRC:
+							srcStage = VK_PIPELINE_STAGE_TRANSFER_BIT;
+							dstStage = VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT;
+							srcAccessMask = VK_ACCESS_TRANSFER_READ_BIT;
+							dstAccessMask = VK_ACCESS_NONE;
+						break;
+						case TinyVkImageLayout::TINYVK_TRANSFER_DST:
+							srcStage = VK_PIPELINE_STAGE_TRANSFER_BIT;
+							dstStage = VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT;
+							srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+							dstAccessMask = VK_ACCESS_NONE;
+						break;
+						case TinyVkImageLayout::TINYVK_SHADER_READONLY:
+							srcStage = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
+							dstStage = VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT;
+							srcAccessMask = VK_ACCESS_SHADER_READ_BIT;
+							dstAccessMask = VK_ACCESS_NONE;
+						break;
+						case TinyVkImageLayout::TINYVK_DEPTHSTENCIL_ATTACHMENT:
+							srcStage = VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT;
+							dstStage = VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT;
+							srcAccessMask = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
+							dstAccessMask = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
+						break;
+						case TinyVkImageLayout::TINYVK_GENERAL:
+							srcStage = VK_PIPELINE_STAGE_ALL_GRAPHICS_BIT;
+							dstStage = VK_PIPELINE_STAGE_ALL_GRAPHICS_BIT;
+							srcAccessMask = VK_ACCESS_SHADER_WRITE_BIT | VK_ACCESS_SHADER_READ_BIT;
+							dstAccessMask = VK_ACCESS_SHADER_WRITE_BIT | VK_ACCESS_SHADER_READ_BIT;
+						break;
+						case TinyVkImageLayout::TINYVK_UNDEFINED:
+						default:
+							srcStage = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+							dstStage = VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT;
+							srcAccessMask = VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_SHADER_WRITE_BIT;;
+							dstAccessMask = VK_ACCESS_NONE;
+						break;
+					}
+				}
 
+				if (cmdBufferStage == TinyVkCmdBufferSubmitStage::TINYVK_BEGIN_TO_END) {
+					srcStage = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
+					dstStage = VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT;
+					srcAccessMask = VK_ACCESS_NONE;
+					dstAccessMask = VK_ACCESS_NONE;
+				}
+			}
+					
 			/// <summary>Get the pipeline barrier info for resource synchronization in image pipeline barrier pNext chain.</summary>
-			VkImageMemoryBarrier GetPipelineBarrier(TinyVkImageLayout newLayout, VkPipelineStageFlags& srcStage, VkPipelineStageFlags& dstStage) {
-				VkImageMemoryBarrier barrier = {
+			VkImageMemoryBarrier GetPipelineBarrier(TinyVkImageLayout newLayout, TinyVkCmdBufferSubmitStage cmdBufferStage, VkPipelineStageFlags& srcStage, VkPipelineStageFlags& dstStage) {
+				VkImageMemoryBarrier pipelineBarrier = {
 					.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
 					.oldLayout = (VkImageLayout) imageLayout, .newLayout = (VkImageLayout) newLayout,
 					.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED, .dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
@@ -217,77 +338,17 @@
 					.image = image,
 				};
 
-				VkPipelineStageFlags tmpSrcStage = srcStage, tmpDstStage = dstStage;
-
-				switch ((VkImageLayout) imageLayout) {
-					case VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL:
-						barrier.srcAccessMask = VK_ACCESS_TRANSFER_READ_BIT;
-						srcStage = VK_PIPELINE_STAGE_TRANSFER_BIT;
-					break;
-					case VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL:
-						barrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
-						srcStage = VK_PIPELINE_STAGE_TRANSFER_BIT;
-					break;
-					case VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL:
-						barrier.srcAccessMask = VK_ACCESS_SHADER_READ_BIT;
-						srcStage = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
-					break;
-					case VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL:
-						barrier.srcAccessMask = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
-						srcStage = VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT;
-						barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT;
-
-						if (format == VK_FORMAT_D32_SFLOAT_S8_UINT || format == VK_FORMAT_D24_UNORM_S8_UINT)
-							barrier.subresourceRange.aspectMask |= VK_IMAGE_ASPECT_STENCIL_BIT;
-					break;
-					case VK_IMAGE_LAYOUT_GENERAL:
-						barrier.srcAccessMask = VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_SHADER_WRITE_BIT;
-						srcStage = VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT | VK_PIPELINE_STAGE_ALL_GRAPHICS_BIT;
-					break;
-					case VK_IMAGE_LAYOUT_UNDEFINED:
-					default:
-						barrier.srcAccessMask = VK_ACCESS_NONE;
-						srcStage = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
-					break;
+				if (imageLayout == TinyVkImageLayout::TINYVK_DEPTHSTENCIL_ATTACHMENT || newLayout == TinyVkImageLayout::TINYVK_DEPTHSTENCIL_ATTACHMENT) {
+					pipelineBarrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT;
+					if (format == VK_FORMAT_D32_SFLOAT_S8_UINT || format == VK_FORMAT_D24_UNORM_S8_UINT)
+						pipelineBarrier.subresourceRange.aspectMask |= VK_IMAGE_ASPECT_STENCIL_BIT;
 				}
 
-				switch ((VkImageLayout) newLayout) {
-					case VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL:
-						barrier.dstAccessMask = VK_ACCESS_TRANSFER_READ_BIT;
-						dstStage = VK_PIPELINE_STAGE_TRANSFER_BIT;
-					break;
-					case VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL:
-						barrier.dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
-						dstStage = VK_PIPELINE_STAGE_TRANSFER_BIT;
-					break;
-					case VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL:
-						barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
-						dstStage = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
-					break;
-					case VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL:
-						barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT;
-						barrier.dstAccessMask = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
-						barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT;
-						
-						if (format == VK_FORMAT_D32_SFLOAT_S8_UINT || format == VK_FORMAT_D24_UNORM_S8_UINT)
-							barrier.subresourceRange.aspectMask |= VK_IMAGE_ASPECT_STENCIL_BIT;
-						
-						dstStage = VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT;
-					break;
-					case VK_IMAGE_LAYOUT_GENERAL:
-						barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_SHADER_WRITE_BIT;
-						dstStage= VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT | VK_PIPELINE_STAGE_ALL_GRAPHICS_BIT;
-					break;
-					case VK_IMAGE_LAYOUT_UNDEFINED:
-					default:
-						barrier.dstAccessMask = VK_ACCESS_NONE;
-						dstStage = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
-					break;
-				}
-
-				if (tmpSrcStage != VK_PIPELINE_STAGE_NONE) srcStage = tmpSrcStage;
-				if (tmpDstStage != VK_PIPELINE_STAGE_NONE) dstStage = tmpDstStage;
-				return barrier;
+				VkAccessFlags srcAccessMask, dstAccessMask;
+				GetPipelineBarrierStages(newLayout, cmdBufferStage, srcStage, dstStage, srcAccessMask, dstAccessMask);
+				pipelineBarrier.srcAccessMask = srcAccessMask;
+				pipelineBarrier.dstAccessMask = dstAccessMask;
+				return pipelineBarrier;
 			}
 			
 			/// <summary>Begins a transfer command and returns the command buffer index pair used for the command allocated from a TinyVkCommandPool.</summary>
@@ -316,15 +377,25 @@
 			}
 			
 			/// <summary>Transitions the GPU bound VkImage from its current layout into a new layout.</summary>
-			void TransitionLayoutCmd(TinyVkImageLayout newLayout, VkPipelineStageFlags srcStage = VK_PIPELINE_STAGE_NONE, VkPipelineStageFlags dstStage = VK_PIPELINE_STAGE_NONE) {
+			void TransitionLayoutCmd(TinyVkImageLayout newLayout) {
 				std::pair<VkCommandBuffer, int32_t> bufferIndexPair = BeginTransferCmd(renderContext);
 				
-				VkImageMemoryBarrier pipelineBarrier = GetPipelineBarrier(newLayout, srcStage, dstStage);
+				VkPipelineStageFlags srcStage, dstStage;
+				VkImageMemoryBarrier pipelineBarrier = GetPipelineBarrier(newLayout, TinyVkCmdBufferSubmitStage::TINYVK_BEGIN_TO_END, srcStage, dstStage);
 				imageLayout = newLayout;
 				aspectFlags = pipelineBarrier.subresourceRange.aspectMask;
-				vkCmdPipelineBarrier(bufferIndexPair.first, srcStage, dstStage, 0, 0, VK_NULL_HANDLE, 0, VK_NULL_HANDLE, 1, &pipelineBarrier);
+				vkCmdPipelineBarrier(bufferIndexPair.first, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, 0, 0, VK_NULL_HANDLE, 0, VK_NULL_HANDLE, 1, &pipelineBarrier);
 
 				EndTransferCmd(renderContext, bufferIndexPair);
+			}
+
+			/// <summary>Transitions the GPU bound VkImage from its current layout into a new layout.</summary>
+			void TransitionLayoutBarrier(VkCommandBuffer cmdBuffer, TinyVkCmdBufferSubmitStage cmdBufferStage, TinyVkImageLayout newLayout) {
+				VkPipelineStageFlags srcStage, dstStage;
+				VkImageMemoryBarrier pipelineBarrier = GetPipelineBarrier(newLayout, cmdBufferStage, srcStage, dstStage);
+				imageLayout = newLayout;
+				aspectFlags = pipelineBarrier.subresourceRange.aspectMask;
+				vkCmdPipelineBarrier(cmdBuffer, srcStage, dstStage, 0, 0, VK_NULL_HANDLE, 0, VK_NULL_HANDLE, 1, &pipelineBarrier);
 			}
 
 			/// <summary>Copies data from CPU accessible memory to GPU accessible memory.</summary>
@@ -332,9 +403,9 @@
 				TinyVkBuffer stagingBuffer = TinyVkBuffer(renderContext, dataSize, TinyVkBufferType::TINYVK_BUFFER_TYPE_STAGING);
 				
 				memcpy(stagingBuffer.description.pMappedData, data, (size_t)dataSize);
-				TransitionLayoutCmd(TinyVkImageLayout::TINYVK_TRANSFER_DST, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT);
+				TransitionLayoutCmd(TinyVkImageLayout::TINYVK_TRANSFER_DST);
 				TransferFromBufferCmd(stagingBuffer);
-				TransitionLayoutCmd(TinyVkImageLayout::TINYVK_SHADER_READONLY, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT);
+				TransitionLayoutCmd(TinyVkImageLayout::TINYVK_COLOR_ATTACHMENT);
 
 				stagingBuffer.Dispose();
 			}
@@ -343,6 +414,7 @@
 			void TransferFromBufferCmd(TinyVkBuffer& srcBuffer) {
 				std::pair<VkCommandBuffer, int32_t> bufferIndexPair = BeginTransferCmd(renderContext);
 
+				TransitionLayoutBarrier(bufferIndexPair.first, TinyVkCmdBufferSubmitStage::TINYVK_BEGIN_TO_END, imageLayout);
 				VkBufferImageCopy region = {
 					.bufferOffset = 0, .bufferRowLength = 0, .bufferImageHeight = 0,
 					.imageSubresource.mipLevel = 0, .imageSubresource.baseArrayLayer = 0, .imageSubresource.layerCount = 1,
@@ -358,6 +430,7 @@
 			void TransferFromBufferCmdExt(TinyVkBuffer& srcBuffer, VkExtent2D size, VkOffset2D offset) {
 				std::pair<VkCommandBuffer, int32_t> bufferIndexPair = BeginTransferCmd(renderContext);
 
+				TransitionLayoutBarrier(bufferIndexPair.first, TinyVkCmdBufferSubmitStage::TINYVK_BEGIN_TO_END, imageLayout);
 				VkBufferImageCopy region = {
 					.bufferOffset = 0, .bufferRowLength = 0, .bufferImageHeight = 0,
 					.imageSubresource.mipLevel = 0, .imageSubresource.baseArrayLayer = 0, .imageSubresource.layerCount = 1,
@@ -374,6 +447,7 @@
 			void TransferToBufferCmd(TinyVkBuffer& dstBuffer) {
 				std::pair<VkCommandBuffer, int32_t> bufferIndexPair = BeginTransferCmd(renderContext);
 
+				TransitionLayoutBarrier(bufferIndexPair.first, TinyVkCmdBufferSubmitStage::TINYVK_BEGIN_TO_END, imageLayout);
 				VkBufferImageCopy region = {
 					.bufferOffset = 0, .bufferRowLength = 0, .bufferImageHeight = 0,
 					.imageSubresource.mipLevel = 0, .imageSubresource.baseArrayLayer = 0, .imageSubresource.layerCount = 1,
@@ -389,6 +463,7 @@
 			void TransferToBufferCmdExt(TinyVkBuffer& dstBuffer, VkExtent2D size, VkOffset2D offset) {
 				std::pair<VkCommandBuffer, int32_t> bufferIndexPair = BeginTransferCmd(renderContext);
 
+				TransitionLayoutBarrier(bufferIndexPair.first, TinyVkCmdBufferSubmitStage::TINYVK_BEGIN_TO_END, imageLayout);
 				VkBufferImageCopy region{};
 				region.bufferOffset = 0;
 				region.bufferRowLength = 0;
