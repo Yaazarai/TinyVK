@@ -116,7 +116,7 @@
         #include "./TinyVk_Buffer.hpp"
         #include "./TinyVk_Image.hpp"
         #include "./TinyVk_GraphicsRenderer.hpp"
-        #include "./TinyVk_SwapChainRenderer.hpp"
+        #include "./TinyVk_SwapchainRenderer.hpp"
         #include "./TinyVk_ResourceQueue.hpp"
         #include "./TinyVk_VertexMath.hpp"
     #pragma endregion
@@ -127,4 +127,7 @@
         Re-Create TinyVkSwapChainRenderer to extend TinyVkImageRenderer (avoiding duplicate code).
         Write and finalize TinyVkComputePipeline and TinyVkComputeRenderer.
             * Compute Pipeline should allow for both storage buffers & storage images.
+    
+    SYNCHRONIZATION?
+        
 */

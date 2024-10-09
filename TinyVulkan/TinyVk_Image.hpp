@@ -90,6 +90,7 @@
 			void CreateImageSyncObjects() {
 				VkSemaphoreCreateInfo semaphoreInfo{};
 				semaphoreInfo.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
+				semaphoreInfo.flags = VK_SEMAPHORE_TYPE_BINARY;
 
 				VkFenceCreateInfo fenceInfo{};
 				fenceInfo.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
@@ -128,30 +129,27 @@
 
 			void Disposable(bool waitIdle) {
 				if (waitIdle) renderContext.vkdevice.DeviceWaitIdle();
-
-				vkDestroySampler(renderContext.vkdevice.GetLogicalDevice(), imageSampler, VK_NULL_HANDLE);
-				vkDestroyImageView(renderContext.vkdevice.GetLogicalDevice(), imageView, VK_NULL_HANDLE);
-				vmaDestroyImage(renderContext.vkdevice.GetAllocator(), image, memory);
-
-				vkDestroySemaphore(renderContext.vkdevice.GetLogicalDevice(), imageAvailable, VK_NULL_HANDLE);
-				vkDestroySemaphore(renderContext.vkdevice.GetLogicalDevice(), imageFinished, VK_NULL_HANDLE);
-				vkDestroyFence(renderContext.vkdevice.GetLogicalDevice(), imageWaitable, VK_NULL_HANDLE);
+				
+				if (imageType != TinyVkImageType::TINYVK_IMAGE_TYPE_SWAPCHAIN) {
+					vkDestroySampler(renderContext.vkdevice.GetLogicalDevice(), imageSampler, VK_NULL_HANDLE);
+					vkDestroyImageView(renderContext.vkdevice.GetLogicalDevice(), imageView, VK_NULL_HANDLE);
+					vmaDestroyImage(renderContext.vkdevice.GetAllocator(), image, memory);
+					vkDestroySemaphore(renderContext.vkdevice.GetLogicalDevice(), imageAvailable, VK_NULL_HANDLE);
+					vkDestroySemaphore(renderContext.vkdevice.GetLogicalDevice(), imageFinished, VK_NULL_HANDLE);
+					vkDestroyFence(renderContext.vkdevice.GetLogicalDevice(), imageWaitable, VK_NULL_HANDLE);
+				}
 			}
 
 			/// <summary>Creates a VkImage for rendering or loading image files (stagedata) into.</summary>
-			TinyVkImage(TinyVkRenderContext& renderContext, TinyVkImageType type, VkDeviceSize width, VkDeviceSize height, VkImage swapChainImage = VK_NULL_HANDLE, VkFormat format = VK_FORMAT_B8G8R8A8_UNORM, VkSamplerAddressMode addressingMode = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE)
-			: renderContext(renderContext), width(width), height(height), imageType(type), format(format), imageLayout(TinyVkImageLayout::TINYVK_UNDEFINED), addressingMode(addressingMode), aspectFlags(aspectFlags) {
+			TinyVkImage(TinyVkRenderContext& renderContext, TinyVkImageType type, VkDeviceSize width, VkDeviceSize height, VkImage imageSource = VK_NULL_HANDLE, VkImageView imageViewSource = VK_NULL_HANDLE, VkSampler imageSampler = VK_NULL_HANDLE, VkSemaphore imageAvailable = VK_NULL_HANDLE, VkSemaphore imageFinished = VK_NULL_HANDLE, VkFence imageWaitable = VK_NULL_HANDLE, VkFormat format = VK_FORMAT_B8G8R8A8_UNORM, VkSamplerAddressMode addressingMode = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE)
+			: renderContext(renderContext), imageType(type), width(width), height(height), image(imageSource), imageView(imageViewSource), imageSampler(imageSampler), imageAvailable(imageAvailable), imageFinished(imageFinished), imageWaitable(imageWaitable), format(format), imageLayout(TinyVkImageLayout::TINYVK_UNDEFINED), addressingMode(addressingMode), aspectFlags(aspectFlags) {
 				onDispose.hook(TinyVkCallback<bool>([this](bool forceDispose) {this->Disposable(forceDispose); }));
 				
 				if (type == TinyVkImageType::TINYVK_IMAGE_TYPE_SWAPCHAIN) {
-					if (swapChainImage == VK_NULL_HANDLE)
+					if (imageSource == VK_NULL_HANDLE)
 						throw std::runtime_error("TinyVulkan: passed SwapChain image is: VK_NULL_HANDLE");
-					image = swapChainImage;
 					imageLayout = TinyVkImageLayout::TINYVK_UNDEFINED;
 					aspectFlags = VK_IMAGE_ASPECT_COLOR_BIT;
-
-					CreateImageView();
-					CreateImageSyncObjects();
 				} else {
 					ReCreateImage(type, width, height, format, addressingMode);
 				}
@@ -352,9 +350,9 @@
 			}
 			
 			/// <summary>Begins a transfer command and returns the command buffer index pair used for the command allocated from a TinyVkCommandPool.</summary>
-			static std::pair<VkCommandBuffer, int32_t> BeginTransferCmd(TinyVkRenderContext& renderContext) {
-				std::pair<VkCommandBuffer, int32_t> bufferIndexPair = renderContext.commandPool.LeaseBuffer();
-				
+			std::pair<VkCommandBuffer, int32_t> BeginTransferCmd() {
+				std::pair<VkCommandBuffer, int32_t> bufferIndexPair = renderContext.commandPool.LeaseBuffer(true);
+
 				VkCommandBufferBeginInfo beginInfo{};
 				beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
 				beginInfo.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
@@ -363,7 +361,7 @@
 			}
 
 			/// <summary>Ends a transfer command and gives the leased/rented command buffer pair back to the TinyVkCommandPool.</summary>
-			static void EndTransferCmd(TinyVkRenderContext& renderContext, std::pair<VkCommandBuffer, int32_t> bufferIndexPair) {
+			void EndTransferCmd(std::pair<VkCommandBuffer, int32_t> bufferIndexPair) {
 				vkEndCommandBuffer(bufferIndexPair.first);
 
 				VkSubmitInfo submitInfo{};
@@ -373,12 +371,13 @@
 
 				vkQueueSubmit(renderContext.graphicsPipeline.GetGraphicsQueue(), 1, &submitInfo, VK_NULL_HANDLE);
 				vkQueueWaitIdle(renderContext.graphicsPipeline.GetGraphicsQueue());
+				vkResetCommandBuffer(bufferIndexPair.first, VK_COMMAND_BUFFER_RESET_RELEASE_RESOURCES_BIT);
 				renderContext.commandPool.ReturnBuffer(bufferIndexPair);
 			}
 			
 			/// <summary>Transitions the GPU bound VkImage from its current layout into a new layout.</summary>
 			void TransitionLayoutCmd(TinyVkImageLayout newLayout) {
-				std::pair<VkCommandBuffer, int32_t> bufferIndexPair = BeginTransferCmd(renderContext);
+				std::pair<VkCommandBuffer, int32_t> bufferIndexPair = BeginTransferCmd();
 				
 				VkPipelineStageFlags srcStage, dstStage;
 				VkImageMemoryBarrier pipelineBarrier = GetPipelineBarrier(newLayout, TinyVkCmdBufferSubmitStage::TINYVK_BEGIN_TO_END, srcStage, dstStage);
@@ -386,7 +385,7 @@
 				aspectFlags = pipelineBarrier.subresourceRange.aspectMask;
 				vkCmdPipelineBarrier(bufferIndexPair.first, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, 0, 0, VK_NULL_HANDLE, 0, VK_NULL_HANDLE, 1, &pipelineBarrier);
 
-				EndTransferCmd(renderContext, bufferIndexPair);
+				EndTransferCmd(bufferIndexPair);
 			}
 
 			/// <summary>Transitions the GPU bound VkImage from its current layout into a new layout.</summary>
@@ -412,7 +411,7 @@
 
 			/// <summary>Copies data from the source TinyVkBuffer into this TinyVkImage.</summary>
 			void TransferFromBufferCmd(TinyVkBuffer& srcBuffer) {
-				std::pair<VkCommandBuffer, int32_t> bufferIndexPair = BeginTransferCmd(renderContext);
+				std::pair<VkCommandBuffer, int32_t> bufferIndexPair = BeginTransferCmd();
 
 				TransitionLayoutBarrier(bufferIndexPair.first, TinyVkCmdBufferSubmitStage::TINYVK_BEGIN_TO_END, imageLayout);
 				VkBufferImageCopy region = {
@@ -423,12 +422,12 @@
 				};
 				vkCmdCopyBufferToImage(bufferIndexPair.first, srcBuffer.buffer, image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &region);
 
-				EndTransferCmd(renderContext, bufferIndexPair);
+				EndTransferCmd(bufferIndexPair);
 			}
 
 			/// <summary>Copies data from the source TinyVkBuffer into this TinyVkImage.</summary>
 			void TransferFromBufferCmdExt(TinyVkBuffer& srcBuffer, VkExtent2D size, VkOffset2D offset) {
-				std::pair<VkCommandBuffer, int32_t> bufferIndexPair = BeginTransferCmd(renderContext);
+				std::pair<VkCommandBuffer, int32_t> bufferIndexPair = BeginTransferCmd();
 
 				TransitionLayoutBarrier(bufferIndexPair.first, TinyVkCmdBufferSubmitStage::TINYVK_BEGIN_TO_END, imageLayout);
 				VkBufferImageCopy region = {
@@ -440,12 +439,12 @@
 				};
 				vkCmdCopyBufferToImage(bufferIndexPair.first, srcBuffer.buffer, image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &region);
 
-				EndTransferCmd(renderContext, bufferIndexPair);
+				EndTransferCmd(bufferIndexPair);
 			}
 			
 			/// <summary>Copies data from this TinyVkImage into the destination TinyVkBuffer</summary>
 			void TransferToBufferCmd(TinyVkBuffer& dstBuffer) {
-				std::pair<VkCommandBuffer, int32_t> bufferIndexPair = BeginTransferCmd(renderContext);
+				std::pair<VkCommandBuffer, int32_t> bufferIndexPair = BeginTransferCmd();
 
 				TransitionLayoutBarrier(bufferIndexPair.first, TinyVkCmdBufferSubmitStage::TINYVK_BEGIN_TO_END, imageLayout);
 				VkBufferImageCopy region = {
@@ -456,12 +455,12 @@
 				};
 				vkCmdCopyImageToBuffer(bufferIndexPair.first, image, (VkImageLayout) imageLayout, dstBuffer.buffer, 1, &region);
 
-				EndTransferCmd(renderContext, bufferIndexPair);
+				EndTransferCmd(bufferIndexPair);
 			}
 
 			/// <summary>Copies data from this TinyVkImage into the destination TinyVkBuffer</summary>
 			void TransferToBufferCmdExt(TinyVkBuffer& dstBuffer, VkExtent2D size, VkOffset2D offset) {
-				std::pair<VkCommandBuffer, int32_t> bufferIndexPair = BeginTransferCmd(renderContext);
+				std::pair<VkCommandBuffer, int32_t> bufferIndexPair = BeginTransferCmd();
 
 				TransitionLayoutBarrier(bufferIndexPair.first, TinyVkCmdBufferSubmitStage::TINYVK_BEGIN_TO_END, imageLayout);
 				VkBufferImageCopy region{};
@@ -476,7 +475,7 @@
 				region.imageOffset = { static_cast<int32_t>(offset.x), static_cast<int32_t>(offset.y), 0 };
 				vkCmdCopyImageToBuffer(bufferIndexPair.first, image, (VkImageLayout) imageLayout, dstBuffer.buffer, 1, &region);
 
-				EndTransferCmd(renderContext, bufferIndexPair);
+				EndTransferCmd(bufferIndexPair);
 			}
 
 			/// <summary>Copies data from this TinyVkImage into the destination TinyVkBuffer</summary>

@@ -98,7 +98,7 @@
 				for(auto& cmdBuffer : commandBuffers)
 					if (!cmdBuffer.second) {
 						cmdBuffer.second = true;
-						if (resetCmdBuffer) vkResetCommandBuffer(cmdBuffer.first, 0);
+						if (resetCmdBuffer) vkResetCommandBuffer(cmdBuffer.first, VK_COMMAND_BUFFER_RESET_RELEASE_RESOURCES_BIT);
 						return std::pair(cmdBuffer.first, index++);
 					}
 				
@@ -115,9 +115,11 @@
 			}
 
 			/// <summary>Sets all of the command buffers to available--optionally resets their recorded commands.</summary>
-			void ReturnAllBuffers(bool resetCmdPool = false) {
-				if (resetCmdPool) vkResetCommandPool(vkdevice.GetLogicalDevice(), commandPool, 0);
-				for(auto& cmdBuffer : commandBuffers) cmdBuffer.second = false;
+			void ReturnAllBuffers() {
+				vkResetCommandPool(vkdevice.GetLogicalDevice(), commandPool, VK_COMMAND_POOL_RESET_RELEASE_RESOURCES_BIT);
+				
+				for(auto& cmdBuffer : commandBuffers)
+					cmdBuffer.second = false;
 			}
 
 			/// <summary>Returns the default command pool size (number of buffers in the pool).</summary> 

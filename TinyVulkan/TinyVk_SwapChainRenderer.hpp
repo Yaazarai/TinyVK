@@ -27,7 +27,7 @@
 		/// 
 		
 		/// <summary>Onscreen Rendering (Render/Present-To-Screen Model): Render to SwapChain.</summary>
-		class TinyVkSwapChainRenderer : public TinyVkRendererInterface, TinyVkDisposable {
+		class TinyVkSwapchainRenderer : public TinyVkDisposable, public TinyVkGraphicsRenderer {
 		private:
 			std::timed_mutex swapChainMutex;
 			TinyVkSurfaceSupporter presentDetails;
@@ -36,8 +36,18 @@
 			VkExtent2D imageExtent;
 			VkImageUsageFlags imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
 			TinyVkBufferingMode bufferingMode;
-			std::vector<VkImage> images;
-			std::vector<VkImageView> imageViews;
+			
+			std::vector<TinyVkImage*> imageSources;
+			std::vector<TinyVkImage*> imageDepthSources;
+			std::vector<VkSemaphore> imageAvailable;
+			std::vector<VkSemaphore> imageFinished;
+			std::vector<VkFence> imageInFlight;
+			std::vector<TinyVkCommandPool*> imageCmdPools;
+
+			
+			uint32_t currentSyncFrame = 0; // Current Synchronized Frame (Ordered).
+			uint32_t currentSwapFrame = 0; // Current SwapChain Image Frame (Out of Order).
+			std::atomic_bool presentable, refreshable;
 
 			/// <summary>Create the Vulkan surface swap-chain images and imageviews.</summary>
 			void CreateSwapChainImages(uint32_t width = 0, uint32_t height = 0) {
@@ -92,8 +102,14 @@
 					throw std::runtime_error("TinyVulkan: Failed to create swap chain!");
 
 				vkGetSwapchainImagesKHR(renderContext.vkdevice.GetLogicalDevice(), swapChain, &imageCount, VK_NULL_HANDLE);
-				images.resize(imageCount);
-				vkGetSwapchainImagesKHR(renderContext.vkdevice.GetLogicalDevice(), swapChain, &imageCount, images.data());
+				
+				std::vector<VkImage> newSwapImages;
+				newSwapImages.resize(imageCount);
+				vkGetSwapchainImagesKHR(renderContext.vkdevice.GetLogicalDevice(), swapChain, &imageCount, newSwapImages.data());
+
+				imageSources.resize(imageCount);
+				for(uint32_t i = 0; i < imageCount; i++)
+					imageSources[i] = new TinyVkImage(renderContext, TinyVkImageType::TINYVK_IMAGE_TYPE_SWAPCHAIN, extent.width, extent.height, newSwapImages[i], VK_NULL_HANDLE, VK_NULL_HANDLE, VK_NULL_HANDLE, VK_NULL_HANDLE, VK_NULL_HANDLE);
 
 				imageFormat = surfaceFormat.format;
 				imageExtent = extent;
@@ -101,14 +117,12 @@
 
 			/// <summary>Create the image views for rendering to images (including those in the swap-chain).</summary>
 			void CreateSwapChainImageViews(VkImageViewCreateInfo* createInfoEx = VK_NULL_HANDLE) {
-				imageViews.resize(images.size());
-
-				for (size_t i = 0; i < images.size(); i++) {
+				for (size_t i = 0; i < imageSources.size(); i++) {
 					VkImageViewCreateInfo createInfo{};
 
 					if (createInfoEx == VK_NULL_HANDLE) {
 						createInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
-						createInfo.image = images[i];
+						createInfo.image = imageSources[i]->image;
 						createInfo.viewType = VK_IMAGE_VIEW_TYPE_2D;
 						createInfo.format = imageFormat;
 
@@ -124,7 +138,7 @@
 						createInfo.subresourceRange.layerCount = 1;
 					} else { createInfo = *createInfoEx; }
 
-					if (vkCreateImageView(renderContext.vkdevice.GetLogicalDevice(), &createInfo, VK_NULL_HANDLE, &imageViews[i]) != VK_SUCCESS)
+					if (vkCreateImageView(renderContext.vkdevice.GetLogicalDevice(), &createInfo, VK_NULL_HANDLE, &imageSources[i]->imageView) != VK_SUCCESS)
 						throw std::runtime_error("TinyVulkan: Failed to create swap chain image views!");
 				}
 			}
@@ -133,6 +147,32 @@
 			void CreateSwapChain(uint32_t width = 0, uint32_t height = 0) {
 				CreateSwapChainImages(width, height);
 				CreateSwapChainImageViews();
+			}
+
+			/// <summary>Creates the synchronization semaphores/fences for swapchain multi-frame buffering.</summary>
+			void CreateImageSyncObjects() {
+				size_t count = static_cast<size_t>(bufferingMode);
+				imageAvailable.resize(count);
+				imageFinished.resize(count);
+				imageInFlight.resize(count);
+
+				VkSemaphoreCreateInfo semaphoreInfo{};
+				semaphoreInfo.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
+
+				VkFenceCreateInfo fenceInfo{};
+				fenceInfo.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
+				fenceInfo.flags = VK_FENCE_CREATE_SIGNALED_BIT;
+
+				for (size_t i = 0; i < imageSources.size(); i++) {
+					if (vkCreateSemaphore(renderContext.vkdevice.GetLogicalDevice(), &semaphoreInfo, VK_NULL_HANDLE, &imageAvailable[i]) != VK_SUCCESS ||
+						vkCreateSemaphore(renderContext.vkdevice.GetLogicalDevice(), &semaphoreInfo, VK_NULL_HANDLE, &imageFinished[i]) != VK_SUCCESS ||
+						vkCreateFence(renderContext.vkdevice.GetLogicalDevice(), &fenceInfo, VK_NULL_HANDLE, &imageInFlight[i]) != VK_SUCCESS)
+						throw std::runtime_error("TinyVulkan: Failed to create synchronization objects for a frame!");
+					
+					imageSources[i]->imageAvailable = imageAvailable[i];
+					imageSources[i]->imageFinished = imageFinished[i];
+					imageSources[i]->imageWaitable = imageInFlight[i];
+				}
 			}
 
 			/// <summary>Checks the VkPhysicalDevice for swap-chain availability.</summary>
@@ -192,90 +232,17 @@
 				extent.height = std::max(1u, extent.height);
 				return extent;
 			}
-			
-			std::vector<VkSemaphore> imageAvailableSemaphores;
-			std::vector<VkSemaphore> renderFinishedSemaphores;
-			std::vector<VkFence> inFlightFences;
-			std::vector<TinyVkImage*> optionalDepthImages;
-			std::vector<TinyVkCommandPool*> commandPools;
-			std::vector<VkExtent2D> frameRenderSizes;
-			TinyVkCommandPool* depthImagePool;
-			TinyVkRenderContext* depthImageRenderContext;
-			uint32_t currentSyncFrame = 0; // Current Synchronized Frame (Ordered).
-			uint32_t currentSwapFrame = 0; // Current SwapChain Image Frame (Out of Order).
 
-			void CreateImageSyncObjects() {
-				size_t count = static_cast<size_t>(bufferingMode);
-				imageAvailableSemaphores.resize(count);
-				renderFinishedSemaphores.resize(count);
-				inFlightFences.resize(count);
-
-				VkSemaphoreCreateInfo semaphoreInfo{};
-				semaphoreInfo.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
-
-				VkFenceCreateInfo fenceInfo{};
-				fenceInfo.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
-				fenceInfo.flags = VK_FENCE_CREATE_SIGNALED_BIT;
-
-				for (size_t i = 0; i < images.size(); i++) {
-					if (vkCreateSemaphore(renderContext.vkdevice.GetLogicalDevice(), &semaphoreInfo, VK_NULL_HANDLE, &imageAvailableSemaphores[i]) != VK_SUCCESS ||
-						vkCreateSemaphore(renderContext.vkdevice.GetLogicalDevice(), &semaphoreInfo, VK_NULL_HANDLE, &renderFinishedSemaphores[i]) != VK_SUCCESS ||
-						vkCreateFence(renderContext.vkdevice.GetLogicalDevice(), &fenceInfo, VK_NULL_HANDLE, &inFlightFences[i]) != VK_SUCCESS)
-						throw std::runtime_error("TinyVulkan: Failed to create synchronization objects for a frame!");
-				}
+			/// <summary>Acquires the next image from the swap chain and returns out that image index.</summary>
+			VkResult QueryNextImage() {
+				vkWaitForFences(renderContext.vkdevice.GetLogicalDevice(), 1, &imageInFlight[currentSyncFrame], VK_TRUE, UINT64_MAX);
+				vkResetFences(renderContext.vkdevice.GetLogicalDevice(), 1, &imageInFlight[currentSyncFrame]);
+				return vkAcquireNextImageKHR(renderContext.vkdevice.GetLogicalDevice(), swapChain, UINT64_MAX, imageAvailable[currentSyncFrame], VK_NULL_HANDLE, &currentSwapFrame);
 			}
 
-			VkResult RendererAcquireImage() {
-				vkWaitForFences(renderContext.vkdevice.GetLogicalDevice(), 1, &inFlightFences[currentSyncFrame], VK_TRUE, UINT64_MAX);
-				VkResult result = AcquireNextImage(imageAvailableSemaphores[currentSyncFrame], VK_NULL_HANDLE, currentSwapFrame);
-				vkResetFences(renderContext.vkdevice.GetLogicalDevice(), 1, &inFlightFences[currentSyncFrame]);
-				return result;
-			}
-
-			VkResult RendererExecuteEvents() {
-				commandPools[currentSyncFrame]->ReturnAllBuffers(true);
-
-				if (renderContext.graphicsPipeline.DepthTestingIsEnabled()) {
-					TinyVkImage* depthImage = optionalDepthImages[currentSyncFrame];
-					if (depthImage->width != imageExtent.width || depthImage->height != imageExtent.height) {
-						depthImage->Disposable(false);
-						depthImage->ReCreateImage(depthImage->imageType, imageExtent.width, imageExtent.height, renderContext.graphicsPipeline.QueryDepthFormat(), VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE);
-					}
-				}
-
-				frameRenderSizes[currentSyncFrame] = imageExtent;
-				commandPools[currentSyncFrame]->ReturnAllBuffers(true);
-				onRenderEvents.invoke(*commandPools[currentSyncFrame]);
-				return VK_SUCCESS;
-			}
-
-			VkResult RendererSubmitPresent() {
-				VkSubmitInfo submitInfo{};
-				submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
-
-				VkSemaphore waitSemaphores[] = { imageAvailableSemaphores[currentSyncFrame] };
-				VkPipelineStageFlags waitStages[] = { VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT };
-				submitInfo.waitSemaphoreCount = 1;
-				submitInfo.pWaitSemaphores = waitSemaphores;
-				submitInfo.pWaitDstStageMask = waitStages;
+			VkResult RenderPresent() {
+				VkSemaphore signalSemaphores[] = { renderTarget->imageFinished };
 				
-				std::vector<VkCommandBuffer> commandBuffers;
-				auto buffers = commandPools[currentSyncFrame]->GetBuffers();
-				std::for_each(buffers.begin(), buffers.end(),
-					[&commandBuffers](std::pair<VkCommandBuffer, VkBool32> cmdBuffer){
-						if (cmdBuffer.second) commandBuffers.push_back(cmdBuffer.first);
-				});
-
-				submitInfo.commandBufferCount = static_cast<uint32_t>(commandBuffers.size());
-				submitInfo.pCommandBuffers = commandBuffers.data();
-
-				VkSemaphore signalSemaphores[] = { renderFinishedSemaphores[currentSyncFrame] };
-				submitInfo.signalSemaphoreCount = 1;
-				submitInfo.pSignalSemaphores = signalSemaphores;
-
-				if (vkQueueSubmit(renderContext.graphicsPipeline.GetGraphicsQueue(), 1, &submitInfo, inFlightFences[currentSyncFrame]) != VK_SUCCESS)
-					throw std::runtime_error("TinyVulkan: Failed to submit draw command buffer!");
-
 				VkPresentInfoKHR presentInfo{};
 				presentInfo.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
 				presentInfo.waitSemaphoreCount = 1;
@@ -286,100 +253,91 @@
 				presentInfo.pSwapchains = swapChainList;
 				presentInfo.pImageIndices = &currentSwapFrame;
 
-				currentSyncFrame = (currentSyncFrame + 1) % static_cast<size_t>(images.size());
+				currentSyncFrame = (currentSyncFrame + 1) % static_cast<size_t>(imageSources.size());
 				return vkQueuePresentKHR(renderContext.graphicsPipeline.GetPresentQueue(), &presentInfo);
 			}
 
 			void RenderSwapChain() {
 				if (refreshable) { OnFrameBufferResizeCallbackNoLock(window.GetHandle(), window.GetWidth(), window.GetHeight()); return; }
 				if (!presentable) return;
+				
+				VkResult result = QueryNextImage();
+				TinyVkImage* swapDepthImage = (renderContext.graphicsPipeline.DepthTestingIsEnabled())? imageDepthSources[currentSyncFrame]: VK_NULL_HANDLE;
+				
+				imageSources[currentSwapFrame]->imageAvailable = imageAvailable[currentSyncFrame];
+				imageSources[currentSwapFrame]->imageFinished = imageFinished[currentSyncFrame];
+				imageSources[currentSwapFrame]->imageWaitable = imageInFlight[currentSyncFrame];
+				
+				this->SetRenderTarget(imageCmdPools[currentSyncFrame], imageSources[currentSwapFrame], swapDepthImage, false);
 
-				VkResult result = VK_SUCCESS;
-				result = RendererAcquireImage();
 				if (result == VK_SUCCESS) {
-					result = RendererExecuteEvents();
+					result = this->RenderExecute(false);
 					if (result == VK_SUCCESS)
-						result = RendererSubmitPresent();
+						result = this->RenderPresent();
 				}
-
+				
 				if (result == VK_ERROR_OUT_OF_DATE_KHR) {
-					commandPools[currentSyncFrame]->ReturnAllBuffers(true);
+					imageCmdPools[currentSyncFrame]->ReturnAllBuffers();
 					presentable = false;
 					currentSyncFrame = 0;
 				} else if (result != VK_SUCCESS && result != VK_SUBOPTIMAL_KHR)
 					throw std::runtime_error("TinyVulkan: Failed to acquire swap chain image or submit to draw queue!");
 			}
 		public:
-			TinyVkRenderContext& renderContext;
 			TinyVkWindow& window;
 
 			inline static TinyVkInvokable<int, int> onResizeFrameBuffer;
-			std::atomic_bool presentable, refreshable;
 
-			TinyVkInvokable<TinyVkCommandPool&> onRenderEvents;
+			TinyVkSwapchainRenderer operator=(const TinyVkSwapchainRenderer& swapRenderer) = delete;
 
-			TinyVkSwapChainRenderer operator=(const TinyVkSwapChainRenderer& swapRenderer) = delete;
-
-			~TinyVkSwapChainRenderer() { this->Dispose(); }
+			~TinyVkSwapchainRenderer() { this->Dispose(); }
 
 			void Disposable(bool waitIdle) {
 				if (waitIdle) renderContext.vkdevice.DeviceWaitIdle();
 
 				if (renderContext.graphicsPipeline.DepthTestingIsEnabled()) {
 					for(size_t i = 0; i < static_cast<size_t>(bufferingMode); i++) {
-						optionalDepthImages[i]->Dispose();
-						delete optionalDepthImages[i];
+						imageDepthSources[i]->Dispose();
+						delete imageDepthSources[i];
 					}
-
-					depthImagePool->Dispose();
-					delete depthImagePool;
-					delete depthImageRenderContext;
 				}
 
-				for (TinyVkCommandPool* cmdPool : commandPools) {
+				for (TinyVkCommandPool* cmdPool : imageCmdPools) {
 					cmdPool->Dispose();
 					delete cmdPool;
 				}
 
-				for (size_t i = 0; i < inFlightFences.size(); i++) {
-					vkDestroySemaphore(renderContext.vkdevice.GetLogicalDevice(), imageAvailableSemaphores[i], VK_NULL_HANDLE);
-					vkDestroySemaphore(renderContext.vkdevice.GetLogicalDevice(), renderFinishedSemaphores[i], VK_NULL_HANDLE);
-					vkDestroyFence(renderContext.vkdevice.GetLogicalDevice(), inFlightFences[i], VK_NULL_HANDLE);
+				for (size_t i = 0; i < imageInFlight.size(); i++) {
+					vkDestroySemaphore(renderContext.vkdevice.GetLogicalDevice(), imageAvailable[i], VK_NULL_HANDLE);
+					vkDestroySemaphore(renderContext.vkdevice.GetLogicalDevice(), imageFinished[i], VK_NULL_HANDLE);
+					vkDestroyFence(renderContext.vkdevice.GetLogicalDevice(), imageInFlight[i], VK_NULL_HANDLE);
 				}
 
-				for (auto imageView : imageViews)
-					vkDestroyImageView(renderContext.vkdevice.GetLogicalDevice(), imageView, VK_NULL_HANDLE);
+				for(auto image : imageSources) {
+					vkDestroyImageView(renderContext.vkdevice.GetLogicalDevice(), image->imageView, VK_NULL_HANDLE);
+					delete image;
+				}
 
 				vkDestroySwapchainKHR(renderContext.vkdevice.GetLogicalDevice(), swapChain, VK_NULL_HANDLE);
 			}
 
 			/// <summary>Creates a renderer specifically for performing render commands on a TinyVkSwapChain (VkSwapChain) to present to the window.</summary>
-			TinyVkSwapChainRenderer(TinyVkRenderContext& renderContext, TinyVkWindow& window, const TinyVkBufferingMode bufferingMode, size_t cmdpoolbuffercount = TinyVkCommandPool::GetDefaultPoolSize(), TinyVkSurfaceSupporter presentDetails = TinyVkSurfaceSupporter(), VkImageUsageFlags imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT)
-				: renderContext(renderContext), window(window), bufferingMode(bufferingMode), presentDetails(presentDetails), imageUsage(imageUsage), presentable(true) {
+			TinyVkSwapchainRenderer(TinyVkRenderContext& renderContext, TinyVkWindow& window, const TinyVkBufferingMode bufferingMode, size_t cmdpoolbuffercount = TinyVkCommandPool::GetDefaultPoolSize(), TinyVkSurfaceSupporter presentDetails = TinyVkSurfaceSupporter(), VkImageUsageFlags imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT)
+				: window(window), bufferingMode(bufferingMode), presentDetails(presentDetails), imageUsage(imageUsage), presentable(true), TinyVkGraphicsRenderer(renderContext, VK_NULL_HANDLE, VK_NULL_HANDLE, VK_NULL_HANDLE) {
 				onDispose.hook(TinyVkCallback<bool>([this](bool forceDispose) {this->Disposable(forceDispose); }));
 				onResizeFrameBuffer.hook(TinyVkCallback<int, int>([this](int, int){ this->RenderSwapChain(); }));
 				window.onResizeFrameBuffer.hook(TinyVkCallback<GLFWwindow*, int, int>([this](GLFWwindow* w, int x, int y) { this->OnFrameBufferResizeCallback(w, x, y); }));
+				imageExtent = (VkExtent2D) { static_cast<uint32_t>(window.GetWidth()), static_cast<uint32_t>(window.GetHeight()) };
 
-				for(size_t i = 0; i < static_cast<size_t>(bufferingMode); i++) {
-					commandPools.push_back(new TinyVkCommandPool(renderContext.vkdevice, cmdpoolbuffercount));
-					frameRenderSizes.push_back({ imageExtent.width, imageExtent.height });
-				}
-
-				if (renderContext.graphicsPipeline.DepthTestingIsEnabled()) {
-					depthImagePool = new TinyVkCommandPool(renderContext.vkdevice, static_cast<size_t>(bufferingMode));
-					depthImageRenderContext = new TinyVkRenderContext(renderContext.vkdevice, *depthImagePool, renderContext.graphicsPipeline);
-					
+				for(size_t i = 0; i < static_cast<size_t>(bufferingMode); i++)
+					imageCmdPools.push_back(new TinyVkCommandPool(renderContext.vkdevice, cmdpoolbuffercount));
+				
+				if (renderContext.graphicsPipeline.DepthTestingIsEnabled())
 					for(size_t i = 0; i < static_cast<size_t>(bufferingMode); i++)
-						optionalDepthImages.push_back(new TinyVkImage(*depthImageRenderContext, TinyVkImageType::TINYVK_IMAGE_TYPE_DEPTHSTENCIL, imageExtent.width, imageExtent.height, VK_NULL_HANDLE, renderContext.graphicsPipeline.QueryDepthFormat(), VK_SAMPLER_ADDRESS_MODE_REPEAT));
-				}
-
+						imageDepthSources.push_back(new TinyVkImage(renderContext, TinyVkImageType::TINYVK_IMAGE_TYPE_DEPTHSTENCIL, imageExtent.width, imageExtent.height, VK_NULL_HANDLE, VK_NULL_HANDLE, VK_NULL_HANDLE, VK_NULL_HANDLE, VK_NULL_HANDLE, VK_NULL_HANDLE, renderContext.graphicsPipeline.QueryDepthFormat(), VK_SAMPLER_ADDRESS_MODE_REPEAT));
+				
 				CreateSwapChain();
 				CreateImageSyncObjects();
-			}
-
-			/// <summary>Acquires the next image from the swap chain and returns out that image index.</summary>
-			VkResult AcquireNextImage(VkSemaphore semaphore, VkFence fence, uint32_t& imageIndex) {
-				return vkAcquireNextImageKHR(renderContext.vkdevice.GetLogicalDevice(), swapChain, UINT64_MAX, semaphore, fence, &imageIndex);
 			}
 
 			/// <summary>Notify the render engine that the window's frame buffer needs to be refreshed (without thread locking).</summary>
@@ -389,15 +347,18 @@
 				if (width > 0 && height > 0) {
 					vkDeviceWaitIdle(renderContext.vkdevice.GetLogicalDevice());
 
-					for (auto imageView : imageViews)
-						vkDestroyImageView(renderContext.vkdevice.GetLogicalDevice(), imageView, VK_NULL_HANDLE);
-					
+					for(auto swapImage : imageSources) {
+						vkDestroyImageView(renderContext.vkdevice.GetLogicalDevice(), swapImage->imageView, VK_NULL_HANDLE);
+						delete swapImage;
+					}
+
 					VkSwapchainKHR oldSwapChain = swapChain;
 					CreateSwapChain(width, height);
 					vkDestroySwapchainKHR(renderContext.vkdevice.GetLogicalDevice(), oldSwapChain, VK_NULL_HANDLE);
 
 					presentable = true;
 					refreshable = false;
+					imageExtent = (VkExtent2D) { static_cast<uint32_t>(width), static_cast<uint32_t>(height) };
 					onResizeFrameBuffer.invoke(imageExtent.width, imageExtent.height);
 				}
 			}
@@ -410,169 +371,27 @@
 			}
 
 			/// <summary>Returns the current resource synchronized frame index.</summary>
-			size_t GetSyncronizedFrameIndex() { return currentSyncFrame; }
-
-			/// <summary>Begins recording render commands to the provided command buffer.</summary>
-			void BeginRecordCmdBuffer(VkCommandBuffer commandBuffer, const VkClearValue clearColor = { 0.0f, 0.0f, 0.0f, 1.0f }, const VkClearValue depthStencil = { .depthStencil = { 1.0f, 0 } }) {
-				VkCommandBufferBeginInfo beginInfo{};
-				beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
-				beginInfo.flags = VK_COMMAND_BUFFER_USAGE_SIMULTANEOUS_USE_BIT;
-				beginInfo.pInheritanceInfo = VK_NULL_HANDLE; // Optional
-
-				if (vkBeginCommandBuffer(commandBuffer, &beginInfo) != VK_SUCCESS)
-					throw std::runtime_error("TinyVulkan: Failed to record [begin] to command buffer!");
-
-				const VkImageMemoryBarrier swapchain_memory_barrier{
-					.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
-					.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
-					.oldLayout = VK_IMAGE_LAYOUT_UNDEFINED,
-					.newLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
-					.image = images[currentSwapFrame],
-					.subresourceRange = {
-					  .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
-					  .baseMipLevel = 0,
-					  .levelCount = 1,
-					  .baseArrayLayer = 0,
-					  .layerCount = 1,
-					},
-				};
-
-				vkCmdPipelineBarrier(commandBuffer, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, 0, 0, VK_NULL_HANDLE, 0, VK_NULL_HANDLE, 1, &swapchain_memory_barrier);
-
-				VkRenderingAttachmentInfoKHR colorAttachmentInfo{};
-				colorAttachmentInfo.sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO_KHR;
-				colorAttachmentInfo.imageView = imageViews[currentSwapFrame];
-				colorAttachmentInfo.imageLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
-				colorAttachmentInfo.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
-				colorAttachmentInfo.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
-				colorAttachmentInfo.clearValue = clearColor;
-
-				VkRenderingInfoKHR dynamicRenderInfo{};
-				dynamicRenderInfo.sType = VK_STRUCTURE_TYPE_RENDERING_INFO_KHR;
-
-				VkRect2D renderAreaKHR{};
-				renderAreaKHR.extent = frameRenderSizes[currentSyncFrame];
-				renderAreaKHR.offset = { 0,0 };
-				dynamicRenderInfo.renderArea = renderAreaKHR;
-				dynamicRenderInfo.layerCount = 1;
-				dynamicRenderInfo.colorAttachmentCount = 1;
-				dynamicRenderInfo.pColorAttachments = &colorAttachmentInfo;
-				
-				VkRenderingAttachmentInfoKHR depthStencilAttachmentInfo{};
-				if (renderContext.graphicsPipeline.DepthTestingIsEnabled()) {
-					const VkImageMemoryBarrier depth_memory_barrier{
-						.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
-						.dstAccessMask = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT,
-						.oldLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
-						.newLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
-						.image = optionalDepthImages[currentSyncFrame]->image,
-						.subresourceRange = {
-						  .aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT,
-						  .baseMipLevel = 0,
-						  .levelCount = 1,
-						  .baseArrayLayer = 0,
-						  .layerCount = 1,
-						},
-					};
-
-					vkCmdPipelineBarrier(commandBuffer, VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT, VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT, 0, 0, VK_NULL_HANDLE, 0, VK_NULL_HANDLE, 1, &depth_memory_barrier);
-
-					depthStencilAttachmentInfo.sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO_KHR;
-					depthStencilAttachmentInfo.imageView = optionalDepthImages[currentSyncFrame]->imageView;
-					depthStencilAttachmentInfo.imageLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
-					depthStencilAttachmentInfo.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
-					depthStencilAttachmentInfo.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
-					depthStencilAttachmentInfo.clearValue = depthStencil;
-					dynamicRenderInfo.pDepthAttachment = &depthStencilAttachmentInfo;
-				}
-
-				VkViewport dynamicViewportKHR{};
-				dynamicViewportKHR.x = 0;
-				dynamicViewportKHR.y = 0;
-				dynamicViewportKHR.width = static_cast<float>(frameRenderSizes[currentSyncFrame].width);
-				dynamicViewportKHR.height = static_cast<float>(frameRenderSizes[currentSyncFrame].height);
-				dynamicViewportKHR.minDepth = 0.0f;
-				dynamicViewportKHR.maxDepth = 1.0f;
-
-				vkCmdSetViewport(commandBuffer, 0, 1, &dynamicViewportKHR);
-				vkCmdSetScissor(commandBuffer, 0, 1, &renderAreaKHR);
-
-				if (vkCmdBeginRenderingEKHR(renderContext.vkdevice.GetInstance(), commandBuffer, &dynamicRenderInfo) != VK_SUCCESS)
-					throw std::runtime_error("TinyVulkan: Failed to record [begin] to rendering!");
-				
-				vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, renderContext.graphicsPipeline.GetGraphicsPipeline());
-			}
-
-			/// <summary>Ends recording render commands to the provided command buffer.</summary>
-			void EndRecordCmdBuffer(VkCommandBuffer commandBuffer, const VkClearValue clearColor = { 0.0f, 0.0f, 0.0f, 1.0f }, const VkClearValue depthStencil = { .depthStencil = { 1.0f, 0 } }) {
-				if (vkCmdEndRenderingEKHR(renderContext.vkdevice.GetInstance(), commandBuffer) != VK_SUCCESS)
-					throw std::runtime_error("TinyVulkan: Failed to record [end] to rendering!");
-
-				const VkImageMemoryBarrier swapchain_memory_barrier{
-					.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
-					.srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
-					.oldLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
-					.newLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,
-					.image = images[currentSwapFrame],
-					.subresourceRange = {
-					  .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
-					  .baseMipLevel = 0,
-					  .levelCount = 1,
-					  .baseArrayLayer = 0,
-					  .layerCount = 1,
-					}
-				};
-
-				vkCmdPipelineBarrier(commandBuffer, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
-					VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, 0, 0, VK_NULL_HANDLE, 0, VK_NULL_HANDLE, 1, &swapchain_memory_barrier);
-
-				if (renderContext.graphicsPipeline.DepthTestingIsEnabled()) {
-					const VkImageMemoryBarrier depth_memory_barrier{
-						.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
-						.dstAccessMask = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT,
-						.oldLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
-						.newLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
-						.image = optionalDepthImages[currentSyncFrame]->image,
-						.subresourceRange = {
-						  .aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT,
-						  .baseMipLevel = 0,
-						  .levelCount = 1,
-						  .baseArrayLayer = 0,
-						  .layerCount = 1,
-						},
-					};
-
-					vkCmdPipelineBarrier(commandBuffer, VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT, VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT, 0, 0, VK_NULL_HANDLE, 0, VK_NULL_HANDLE, 1, &depth_memory_barrier);
-				}
-
-				if (vkEndCommandBuffer(commandBuffer) != VK_SUCCESS)
-					throw std::runtime_error("TinyVulkan: Failed to record [end] to command buffer!");
-			}
-
-			/// <summary>Records Push Descriptors to the command buffer.</summary>
-			VkResult PushDescriptorSet(VkCommandBuffer cmdBuffer, std::vector<VkWriteDescriptorSet> writeDescriptorSets) {
-				return vkCmdPushDescriptorSetEKHR(renderContext.vkdevice.GetInstance(), cmdBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, renderContext.graphicsPipeline.GetPipelineLayout(),
-					0, static_cast<uint32_t>(writeDescriptorSets.size()), writeDescriptorSets.data());
-			}
-
-			/// <summary>Records Push Constants to the command buffer.</summary>
-			void PushConstants(VkCommandBuffer cmdBuffer, VkShaderStageFlagBits shaderFlags, uint32_t byteSize, const void* pValues) {
-				vkCmdPushConstants(cmdBuffer, renderContext.graphicsPipeline.GetPipelineLayout(), VK_SHADER_STAGE_VERTEX_BIT, 0, byteSize, pValues);
-			}
-
-			/// <summary>Executes the registered onRenderEvents and presents them to the SwapChain(Window).</summary>
-			void RenderExecute() {
-				timed_guard swapChainLock(swapChainMutex);
-				if (!swapChainLock.Acquired()) return;
-				RenderSwapChain();
-			}
-
-			//VkPresentModeKHR newPresentMode;
+			uint32_t GetSyncronizedFrameIndex() { return currentSyncFrame; }
+			
+			/// <summary>Returns reference to presentable atomic_bool (whether swapchain is presentable or not).</summary>
+			std::atomic_bool& GetPresentableBool() { return presentable; }
+			
+			/// <summary>Returns reference to presentable atomic_bool (whether swapchain is NOT presentable and needs a refresh).</summary>
+			std::atomic_bool& GetRefreshableBool() { return refreshable; }
+			
+			/// <summary>Returns the current resource synchronized frame index.</summary>
 			void PushPresentMode(VkPresentModeKHR presentMode) {
 				if (presentMode != presentDetails.idealPresentMode) {
 					presentDetails = { presentDetails.dataFormat, presentDetails.colorSpace, presentMode };
 					refreshable = true;
 				}
+			}
+
+			/// <summary>Executes the registered onRenderEvents and presents them to the SwapChain(Window).</summary>
+			void RenderSwapChainExecute() {
+				timed_guard swapChainLock(swapChainMutex);
+				if (!swapChainLock.Acquired()) return;
+				RenderSwapChain();
 			}
 		};
 	}

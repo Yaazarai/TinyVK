@@ -23,7 +23,7 @@ int32_t TINYVULKAN_WINDOWMAIN {
     TinyVkGraphicsPipeline pipeline(vkdevice, vertexDescription, defaultShaders, pushDescriptorLayouts, {}, false);
 
     TinyVkRenderContext renderContext(vkdevice, commandPool, pipeline);
-    TinyVkSwapChainRenderer swapRenderer(renderContext, window, bufferingMode);
+    TinyVkSwapchainRenderer swapRenderer(renderContext, window, bufferingMode, TinyVkCommandPool::defaultCommandPoolSize);
     //TinyVkComputeRender computeRenderer(renderContext, computeVertexDescription, computeDefaultShaders, computePushDescriptorLayouts, {}, false);
 
     std::vector<TinyVkVertex> triangles = {
@@ -61,26 +61,29 @@ int32_t TINYVULKAN_WINDOWMAIN {
     );
     
     /// TESTING RENDERCONTEXT CHANGES WITH THE IMAGE RENDERER.
+    //TinyVkCommandPool commandPool2(vkdevice);
+    //TinyVkRenderContext renderContext2(vkdevice, commandPool2, pipeline);
     TinyVkImage sourceImage(renderContext, TinyVkImageType::TINYVK_IMAGE_TYPE_COLORATTACHMENT, 960, 540);
-    TinyVkGraphicsRenderer imageRenderer(renderContext, &sourceImage, VK_NULL_HANDLE, TinyVkCommandPool::defaultCommandPoolSize);
+    TinyVkGraphicsRenderer imageRenderer(renderContext, &commandPool, &sourceImage, VK_NULL_HANDLE);
+    
     imageRenderer.onRenderEvents.hook(TinyVkCallback<TinyVkCommandPool&>(
     [&indices, &vkdevice, &window, &imageRenderer, &pipeline, &vbuffer, &ibuffer, &projection1](TinyVkCommandPool& commandPool) {
-        auto commandBuffer = commandPool.LeaseBuffer();
-        imageRenderer.BeginRecordCmdBuffer(commandBuffer.first /*, clearColor, depthStencil*/);
-        
         glm::mat4 camera = TinyVkMath::Project2D(window.GetWidth(), window.GetHeight(), 0, 0, 1.0, 0.0);
-        projection1.StageBufferData(&camera, sizeof(glm::mat4), 0, 0);
-        VkDescriptorBufferInfo cameraDescriptorInfo = projection1.GetBufferDescriptor();
-        VkWriteDescriptorSet cameraDescriptor = pipeline.SelectWriteBufferDescriptor(0, 1, { &cameraDescriptorInfo });
-        imageRenderer.PushDescriptorSet(commandBuffer.first, { cameraDescriptor });
         
-        VkDeviceSize offsets[] = { 0 };
-        imageRenderer.CmdBindGeometry(commandBuffer.first, &vbuffer.buffer, ibuffer.buffer, offsets);
-        imageRenderer.CmdDrawGeometry(commandBuffer.first, true, 1, 0, indices.size(), 0, 0);    
+        projection1.StageBufferData(&camera, sizeof(glm::mat4), 0, 0);
+        auto commandBuffer = commandPool.LeaseBuffer(false);
+
+        imageRenderer.BeginRecordCmdBuffer(commandBuffer.first /*, clearColor, depthStencil*/);
+            VkDescriptorBufferInfo cameraDescriptorInfo = projection1.GetBufferDescriptor();
+            VkWriteDescriptorSet cameraDescriptor = pipeline.SelectWriteBufferDescriptor(0, 1, { &cameraDescriptorInfo });
+            imageRenderer.PushDescriptorSet(commandBuffer.first, { cameraDescriptor });
+            
+            VkDeviceSize offsets[] = { 0 };
+            imageRenderer.CmdBindGeometry(commandBuffer.first, &vbuffer.buffer, ibuffer.buffer, offsets);
+            imageRenderer.CmdDrawGeometry(commandBuffer.first, true, 1, 0, indices.size(), 0, 0);    
         imageRenderer.EndRecordCmdBuffer(commandBuffer.first /*, clearColor, depthStencil*/);
     }));
     imageRenderer.RenderExecute();
-    imageRenderer.Disposable(true);
     
     VkClearValue clearColor{ .color.float32 = { 0.0, 0.0, 0.5, 1.0 } };
     VkClearValue depthStencil{ .depthStencil = { 1.0f, 0 } };
@@ -120,14 +123,21 @@ int32_t TINYVULKAN_WINDOWMAIN {
         
         angle += 1;
 
-        //if (angle % 200 == 0) swapRenderer.PushPresentMode(VK_PRESENT_MODE_IMMEDIATE_KHR);
-        //if (angle % 400 == 0) swapRenderer.PushPresentMode(VK_PRESENT_MODE_FIFO_KHR);
+        if (angle % 200 == 0) swapRenderer.PushPresentMode(VK_PRESENT_MODE_IMMEDIATE_KHR);
+        if (angle % 400 == 0) swapRenderer.PushPresentMode(VK_PRESENT_MODE_FIFO_KHR);
     }));
 
-    std::thread mythread([&window, &swapRenderer]() { while (!window.ShouldClose()) { swapRenderer.RenderExecute(); } });
-    //window.onWhileMain.hook(TinyVkCallback<std::atomic_bool&>([&swapRenderer](std::atomic_bool& check){ swapRenderer.RenderExecute(); }));
-    //window.WhileMain(false);
+    // MULTI-THREADED: (window events on main, rendering on secondary)
+    std::thread mythread([&window, &swapRenderer]() { while (!window.ShouldClose()) { swapRenderer.RenderSwapChainExecute(); } });
     window.WhileMain(true);
     mythread.join();
+
+    // SINGLE-THREADED: (window/render events within the same thread, window events will block rendering temporarily)
+    //window.onWhileMain.hook(TinyVkCallback<std::atomic_bool&>([&swapRenderer](std::atomic_bool& check){ swapRenderer.RenderSwapChain(); }));
+    //window.WhileMain(false);
+
+    std::cout << "[Window Frozen] Awating user input before closing..." << std::endl;
+    int xx = 0;
+    std::cin >> xx;
     return VK_SUCCESS;
 }

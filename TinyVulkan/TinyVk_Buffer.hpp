@@ -99,8 +99,8 @@
 			}
 
 			/// <summary>Begins a transfer command and returns the command buffer index pair used for the command allocated from a TinyVkCommandPool.</summary>
-			static std::pair<VkCommandBuffer, int32_t> BeginTransferCmd(TinyVkRenderContext& renderContext) {
-				std::pair<VkCommandBuffer, int32_t> bufferIndexPair = renderContext.commandPool.LeaseBuffer();
+			std::pair<VkCommandBuffer, int32_t> BeginTransferCmd() {
+				std::pair<VkCommandBuffer, int32_t> bufferIndexPair = renderContext.commandPool.LeaseBuffer(true);
 				
 				VkCommandBufferBeginInfo beginInfo{};
 				beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
@@ -110,7 +110,7 @@
 			}
 
 			/// <summary>Ends a transfer command and gives the leased/rented command buffer pair back to the TinyVkCommandPool.</summary>
-			static void EndTransferCmd(TinyVkRenderContext& renderContext, std::pair<VkCommandBuffer, int32_t> bufferIndexPair) {
+			void EndTransferCmd(std::pair<VkCommandBuffer, int32_t> bufferIndexPair) {
 				vkEndCommandBuffer(bufferIndexPair.first);
 
 				VkSubmitInfo submitInfo{};
@@ -120,12 +120,13 @@
 
 				vkQueueSubmit(renderContext.graphicsPipeline.GetGraphicsQueue(), 1, &submitInfo, VK_NULL_HANDLE);
 				vkQueueWaitIdle(renderContext.graphicsPipeline.GetGraphicsQueue());
+				vkResetCommandBuffer(bufferIndexPair.first, VK_COMMAND_BUFFER_RESET_RELEASE_RESOURCES_BIT);
 				renderContext.commandPool.ReturnBuffer(bufferIndexPair);
 			}
 
 			/// <summary>Copies data from the source TinyVkBuffer into this TinyVkBuffer.</summary>
-			static void TransferBufferCmd(TinyVkRenderContext& renderContext, TinyVkBuffer& srcBuffer, TinyVkBuffer& dstBuffer, VkDeviceSize dataSize, VkDeviceSize srceOffset = 0, VkDeviceSize destOffset = 0) {
-				std::pair<VkCommandBuffer,int32_t> bufferIndexPair = BeginTransferCmd(renderContext);
+			void TransferBufferCmd(TinyVkRenderContext& renderContext, TinyVkBuffer& srcBuffer, TinyVkBuffer& dstBuffer, VkDeviceSize dataSize, VkDeviceSize srceOffset = 0, VkDeviceSize destOffset = 0) {
+				std::pair<VkCommandBuffer,int32_t> bufferIndexPair = BeginTransferCmd();
 
 				VkBufferCopy copyRegion{};
 				copyRegion.srcOffset = srceOffset;
@@ -133,13 +134,13 @@
 				copyRegion.size = dataSize;
 				vkCmdCopyBuffer(bufferIndexPair.first, srcBuffer.buffer, dstBuffer.buffer, 1, &copyRegion);
 
-				EndTransferCmd(renderContext, bufferIndexPair);
+				EndTransferCmd(bufferIndexPair);
 			}
 			
 			/// <summary>Copies data from CPU accessible memory to GPU accessible memory for a list of buffers.</summary>
-			static void StageBufferDataQueue(std::vector<std::tuple<TinyVkBuffer&, void*, VkDeviceSize, VkDeviceSize, VkDeviceSize>> buffers) {
+			void StageBufferDataQueue(std::vector<std::tuple<TinyVkBuffer&, void*, VkDeviceSize, VkDeviceSize, VkDeviceSize>> buffers) {
 				TinyVkBuffer& startBuffer = std::get<0>(buffers[0]);
-				std::pair<VkCommandBuffer,int32_t> bufferIndexPair = BeginTransferCmd(startBuffer.renderContext);
+				std::pair<VkCommandBuffer,int32_t> bufferIndexPair = BeginTransferCmd();
 
 				for(std::tuple<TinyVkBuffer&, void*, VkDeviceSize, VkDeviceSize, VkDeviceSize> staging : buffers) {
 					TinyVkBuffer& buffer = std::get<0>(staging);
@@ -150,7 +151,7 @@
 					memcpy(buffer.description.pMappedData, memory, (size_t)size);
 				}
 
-				EndTransferCmd(startBuffer.renderContext, bufferIndexPair);
+				EndTransferCmd(bufferIndexPair);
 			}
 
 			/// <summary>Copies data from CPU accessible memory to GPU accessible memory.</summary>
