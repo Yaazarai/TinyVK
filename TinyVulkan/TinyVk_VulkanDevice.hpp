@@ -8,18 +8,16 @@
 		#define VK_VALIDATION_LAYER_KHRONOS_EXTENSION_NAME "VK_LAYER_KHRONOS_validation"
 
 		struct TinyVkQueueFamily {
-			std::optional<uint32_t> graphicsFamily;
-			std::optional<uint32_t> presentFamily;
-			std::optional<uint32_t> computeFamily;
+			uint32_t graphicsFamily, presentFamily, computeFamily;
+			bool hasGraphicsFamily, hasPresentFamily, hasComputeFamily;
 
-			/// <summary>Returns true/false if this is a complete graphics queue family.</summary>
-			bool HasGraphicsFamily() { return graphicsFamily.has_value(); }
-			
-			/// <summary>Returns true/false if this is a complete present queue family.</summary>
-			bool HasPresentFamily() { return presentFamily.has_value(); }
-
-			/// <summary>Returns true/false if this is a complete compute queue family.</summary>
-			bool HasComputeFamily() { return computeFamily.has_value(); }
+			TinyVkQueueFamily() : graphicsFamily(0), presentFamily(0), computeFamily(0), hasGraphicsFamily(false), hasPresentFamily(false), hasComputeFamily(false) {}
+			void SetGraphicsFamily(uint32_t queueFamily) { graphicsFamily = queueFamily; hasGraphicsFamily = true; }
+			void SetPresentFamily(uint32_t queueFamily) { presentFamily = queueFamily; hasPresentFamily = true; }
+			void SetComputeFamily(uint32_t queueFamily) { computeFamily = queueFamily; hasComputeFamily = true; }
+			bool HasGraphicsFamily() { return hasGraphicsFamily; }
+			bool HasPresentFamily() { return hasPresentFamily; }
+			bool HasComputeFamily() { return hasComputeFamily; }
 		};
 
 		union VkPhysicalDeviceFeaturesUnionArray {
@@ -30,18 +28,12 @@
 		/// <summary>Vulkan Instance & Render(Physical/Logical) Device & VMAllocator Loader.</summary>
 		class TinyVkVulkanDevice : public TinyVkDisposable {
 		private:
-			const std::vector<const char*> validationLayers = { VK_VALIDATION_LAYER_KHRONOS_EXTENSION_NAME };
-			const std::vector<const char*> instanceExtensions = {  };
-			const std::vector<const char*> deviceExtensions = {
-				VK_KHR_SWAPCHAIN_EXTENSION_NAME,
-				VK_KHR_CREATE_RENDERPASS_2_EXTENSION_NAME,
-				VK_KHR_DEPTH_STENCIL_RESOLVE_EXTENSION_NAME,
-				VK_KHR_DYNAMIC_RENDERING_EXTENSION_NAME,
-				VK_KHR_PUSH_DESCRIPTOR_EXTENSION_NAME,
-			};
+			std::vector<const char*> validationLayers = { VK_VALIDATION_LAYER_KHRONOS_EXTENSION_NAME };
+			std::vector<const char*> deviceExtensions = { VK_KHR_CREATE_RENDERPASS_2_EXTENSION_NAME, VK_KHR_DEPTH_STENCIL_RESOLVE_EXTENSION_NAME, VK_KHR_DYNAMIC_RENDERING_EXTENSION_NAME, VK_KHR_PUSH_DESCRIPTOR_EXTENSION_NAME };
+			std::vector<const char*> instanceExtensions = {  };
+
 			const std::vector<VkPhysicalDeviceType> deviceTypes;
 			VkPhysicalDeviceFeatures deviceFeatures {};
-			std::vector<const char*> presentExtensionNames;
 
 			VkApplicationInfo appInfo{};
 			VkInstance instance = VK_NULL_HANDLE;
@@ -53,7 +45,7 @@
 			VmaAllocator memoryAllocator = VK_NULL_HANDLE;
 
 			/// <summary>Creates the underlying Vulkan Instance w/ Required Extensions.</summary>
-			void CreateVkInstance(const std::string& title) {
+			void CreateVkInstance(const std::string& title, TinyVkWindow* window = VK_NULL_HANDLE) {
 				VkApplicationInfo appInfo {};
 				appInfo.sType = VK_STRUCTURE_TYPE_APPLICATION_INFO;
 				appInfo.pApplicationName = title.c_str();
@@ -68,9 +60,9 @@
 
 				#if TVK_VALIDATION_LAYERS
 					if (!QueryValidationLayerSupport()) {
-						throw std::runtime_error("TinyVulkan: Failed to initialize validation layers!");
+						throw TinyVkRuntimeError("TinyVulkan: Failed to initialize validation layers!");
 					} else {
-						std::cout << "TinyVulkan: Enabled VBalidation Layers:" << std::endl;
+						std::cout << "TinyVulkan: Enabled Validation Layers:" << std::endl;
 						for(const char* layer : validationLayers)
 							std::cout << "\t" << layer << std::endl;
 					}
@@ -85,25 +77,28 @@
 					createInfo.enabledLayerCount = static_cast<uint32_t>(validationLayers.size());
 					createInfo.ppEnabledLayerNames = validationLayers.data();
 					createInfo.pNext = (VkDebugUtilsMessengerCreateInfoEXT*)&debugCreateInfo;
+					
+					instanceExtensions.push_back(VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
 				#endif
 
-				std::vector<const char*> extensions(presentExtensionNames);
-				for (const auto& extension : instanceExtensions) extensions.push_back(extension);
-
-				createInfo.enabledExtensionCount = static_cast<uint32_t>(extensions.size());
-				createInfo.ppEnabledExtensionNames = extensions.data();
+				if (window != VK_NULL_HANDLE)
+					for (const auto& extension : window->QueryRequiredExtensions())
+						instanceExtensions.push_back(extension);
+				
+				createInfo.enabledExtensionCount = static_cast<uint32_t>(instanceExtensions.size());
+				createInfo.ppEnabledExtensionNames = instanceExtensions.data();
 
 				VkResult result = vkCreateInstance(&createInfo, VK_NULL_HANDLE, &instance);
 				if (result != VK_SUCCESS)
-					throw std::runtime_error("TinyVulkan: Failed to create Vulkan instance! " + result);
+					throw TinyVkRuntimeError("TinyVulkan: Failed to create Vulkan instance! " + result);
 
 				#if TVK_VALIDATION_LAYERS
 					result = CreateDebugUtilsMessengerEXT(instance, &debugCreateInfo, VK_NULL_HANDLE, &debugMessenger);
 					if (result != VK_SUCCESS)
-						throw std::runtime_error("TinyVulkan: Failed to set up debug messenger! " + result);
+						throw TinyVkRuntimeError("TinyVulkan: Failed to set up debug messenger! " + result);
 
-					for (const auto& extension : extensions) std::cout << '\t' << extension << '\n';
-					std::cout << "TinyVulkan: " << extensions.size() << " extensions supported\n";
+					std::cout << "TinyVulkan: " << instanceExtensions.size() << " extensions supported." << std::endl;
+					for (const auto& extension : instanceExtensions) std::cout << '\t' << extension << std::endl;
 				#endif
 			}
 			
@@ -142,7 +137,7 @@
 				physicalDevice = (suitableDevices.size() > 0)? suitableDevices.front() : VK_NULL_HANDLE;
 
 				if (physicalDevice == VK_NULL_HANDLE)
-					throw std::runtime_error("TinyVulkan: Failed to find a suitable GPU!");
+					throw TinyVkRuntimeError("TinyVulkan: Failed to find a suitable GPU!");
 				
 				#if TVK_VALIDATION_LAYERS
 					VkPhysicalDevicePushDescriptorPropertiesKHR pushDescriptorProps {};
@@ -161,16 +156,22 @@
 					std::cout << "\tPush Descriptor Memory: " << pushDescriptorProps.maxPushDescriptors << " Count" << std::endl;
 					
 					TinyVkQueueFamily indices = FindQueueFamilies(physicalDevice);
-					std::cout << "\tCompute Pipeline:       " << (useComputeBit?"true (enabled)":"false (enabled)") << " / " << (indices.HasComputeFamily()?"true (compatible)":"false (compatible)") << std::endl;
+					std::cout << "\tGraphics Pipeline:       " << (indices.hasGraphicsFamily?"true (enabled)":"false (enabled)") << " / " << (indices.hasComputeFamily?"true (compatible)":"false (compatible)") << std::endl;
+					std::cout << "\tPresent Pipeline:       " << (indices.hasPresentFamily?"true (enabled)":"false (enabled)") << " / " << (indices.hasComputeFamily?"true (compatible)":"false (compatible)") << std::endl;
+					std::cout << "\tCompute Pipeline:       " << (indices.hasComputeFamily?"true (enabled)":"false (enabled)") << " / " << (indices.hasComputeFamily?"true (compatible)":"false (compatible)") << std::endl;
 				#endif
 			}
 			
 			/// <summary>Creates the logical devices for the graphics/present queue families.</summary>
 			void CreateLogicalDevice() {
 				TinyVkQueueFamily indices = FindQueueFamilies();
-
 				std::vector<VkDeviceQueueCreateInfo> queueCreateInfos;
-				std::set<uint32_t> uniqueQueueFamilies = { indices.graphicsFamily.value(), indices.presentFamily.value() };
+				
+				uint32_t graphicsFamily, presentFamily, computeFamily;
+				graphicsFamily = indices.hasGraphicsFamily? indices.graphicsFamily : 0;
+				presentFamily = indices.hasPresentFamily? indices.presentFamily : graphicsFamily;
+				computeFamily = indices.hasComputeFamily? indices.computeFamily : graphicsFamily;
+				std::set<uint32_t> uniqueQueueFamilies = { graphicsFamily, presentFamily, computeFamily };
 
 				float queuePriority = 1.0f;
 				for (uint32_t queueFamily : uniqueQueueFamilies) {
@@ -181,7 +182,7 @@
 					queueCreateInfo.pQueuePriorities = &queuePriority;
 					queueCreateInfos.push_back(queueCreateInfo);
 				}
-				
+
 				VkPhysicalDeviceDynamicRenderingFeatures dynamicRenderingCreateInfo{};
 				dynamicRenderingCreateInfo.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DYNAMIC_RENDERING_FEATURES_KHR;
 				dynamicRenderingCreateInfo.dynamicRendering = VK_TRUE;
@@ -192,6 +193,10 @@
 				createInfo.pQueueCreateInfos = queueCreateInfos.data();
 				createInfo.queueCreateInfoCount = static_cast<uint32_t>(queueCreateInfos.size());
 				createInfo.pEnabledFeatures = &deviceFeatures;
+
+				if (indices.hasPresentFamily)
+					deviceExtensions.push_back(VK_KHR_SWAPCHAIN_EXTENSION_NAME);
+				
 				createInfo.enabledExtensionCount = static_cast<uint32_t>(deviceExtensions.size());
 				createInfo.ppEnabledExtensionNames = deviceExtensions.data();
 
@@ -204,7 +209,7 @@
 				#endif
 
 				if (vkCreateDevice(physicalDevice, &createInfo, VK_NULL_HANDLE, &logicalDevice) != VK_SUCCESS)
-					throw std::runtime_error("TinyVulkan: Failed to create logical device!");
+					throw TinyVkRuntimeError("TinyVulkan: Failed to create logical device! Missing extension or queue family!");
 			}
 			
 			/// <summary>Creates the VMAllocator for AMD's GPU memory handling API.</summary>
@@ -225,7 +230,7 @@
 			~TinyVkVulkanDevice() { this->Dispose(); }
 
 			void Disposable(bool waitIdle) {
-				if (waitIdle) vkDeviceWaitIdle(logicalDevice);
+				if (waitIdle) DeviceWaitIdle();
 
 				#if TVK_VALIDATION_LAYERS
 					DestroyDebugUtilsMessengerEXT(instance, debugMessenger, VK_NULL_HANDLE);
@@ -233,19 +238,20 @@
 				
 				vmaDestroyAllocator(memoryAllocator);
 				vkDestroyDevice(logicalDevice, VK_NULL_HANDLE);
-				vkDestroySurfaceKHR(instance, presentSurface, VK_NULL_HANDLE);
+				if (presentSurface != VK_NULL_HANDLE)
+					vkDestroySurfaceKHR(instance, presentSurface, VK_NULL_HANDLE);
 				vkDestroyInstance(instance, VK_NULL_HANDLE);
 			}
 
-			TinyVkVulkanDevice(const std::string title, bool useComputeBit = false, const std::vector<VkPhysicalDeviceType> deviceTypes = { VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU, VK_PHYSICAL_DEVICE_TYPE_INTEGRATED_GPU, VK_PHYSICAL_DEVICE_TYPE_VIRTUAL_GPU }, TinyVkWindow* window = VK_NULL_HANDLE, const std::vector<const char*> presentExtensionNames = {}, VkPhysicalDeviceFeatures deviceFeatures = { .multiDrawIndirect = VK_TRUE })
-			: useComputeBit(useComputeBit), deviceTypes(deviceTypes), presentExtensionNames(presentExtensionNames) {
+			TinyVkVulkanDevice(const std::string title, bool useComputeBit = false, const std::vector<VkPhysicalDeviceType> deviceTypes = { VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU, VK_PHYSICAL_DEVICE_TYPE_INTEGRATED_GPU, VK_PHYSICAL_DEVICE_TYPE_VIRTUAL_GPU }, TinyVkWindow* window = VK_NULL_HANDLE, VkPhysicalDeviceFeatures deviceFeatures = { .multiDrawIndirect = VK_TRUE })
+			: useComputeBit(useComputeBit), deviceTypes(deviceTypes) {
 				onDispose.hook(TinyVkCallback<bool>([this](bool forceDispose) {this->Disposable(forceDispose); }));
 				
 				VkPhysicalDeviceFeaturesUnionArray featuresA = { .vkfeatures = this->deviceFeatures }, featuresB = { .vkfeatures = deviceFeatures };
 				for(size_t i = 0; i < sizeof(VkPhysicalDeviceFeatures)/sizeof(VkBool32); i++) featuresA.features[i] |= featuresB.features[i];
 				this->deviceFeatures = featuresA.vkfeatures;
 
-				CreateVkInstance(title);
+				CreateVkInstance(title, window);
 
 				if (window != VK_NULL_HANDLE)
 					presentSurface = window->CreateWindowSurface(instance);
@@ -307,18 +313,20 @@
 				std::vector<VkQueueFamilyProperties> queueFamilies(queueFamilyCount);
 				vkGetPhysicalDeviceQueueFamilyProperties(device, &queueFamilyCount, queueFamilies.data());
 				
-				TinyVkQueueFamily indices;
-				VkBool32 presentSupport = presentSurface != VK_NULL_HANDLE;
+				TinyVkQueueFamily indices = {};
+				VkBool32 presentSupport = false;
 				for (int i = 0; i < queueFamilies.size(); i++) {
-					vkGetPhysicalDeviceSurfaceSupportKHR(device, i, presentSurface, &presentSupport);
-					indices.graphicsFamily = (queueFamilies[i].queueFlags & VK_QUEUE_GRAPHICS_BIT)? i : indices.graphicsFamily;
-					indices.presentFamily = (presentSupport)? i: indices.presentFamily;
-					indices.computeFamily = (queueFamilies[i].queueFlags & VK_QUEUE_COMPUTE_BIT)? i: indices.computeFamily;
-					//if (indices.HasGraphicsFamily() || (!presentSupport && (presentSupport && indices.HasPresentFamily()))) break;
-					if (indices.HasGraphicsFamily() && (!presentSupport || (presentSupport && indices.HasPresentFamily()))
-					&& (!useComputeBit || (useComputeBit && indices.HasComputeFamily()))) break;
+					if (presentSurface != VK_NULL_HANDLE)
+							vkGetPhysicalDeviceSurfaceSupportKHR(device, i, presentSurface, &presentSupport);
+					
+					if (queueFamilies[i].queueFlags & VK_QUEUE_GRAPHICS_BIT) { indices.SetGraphicsFamily(i); }
+					if (presentSupport) { indices.SetPresentFamily(i); }
+					if (useComputeBit && queueFamilies[i].queueFlags & VK_QUEUE_COMPUTE_BIT) { indices.SetComputeFamily(i); }
+					if (indices.hasGraphicsFamily
+						&& (!presentSupport || (presentSupport && indices.hasPresentFamily))
+						&& (!useComputeBit || (useComputeBit && indices.hasComputeFamily)))
+							break;
 				}
-
 				return indices;
 			}
 
@@ -326,13 +334,13 @@
 			TinyVkSwapChainSupporter QuerySwapChainSupport(VkPhysicalDevice device) {
 				TinyVkSwapChainSupporter details;
 
-				uint32_t formatCount;
+				uint32_t formatCount = 0;
 				vkGetPhysicalDeviceSurfaceFormatsKHR(device, presentSurface, &formatCount, VK_NULL_HANDLE);
 				details.formats.resize(formatCount);
 				vkGetPhysicalDeviceSurfaceFormatsKHR(device, presentSurface, &formatCount, details.formats.data());
 				vkGetPhysicalDeviceSurfaceCapabilitiesKHR(device, presentSurface, &details.capabilities);
 
-				uint32_t presentModeCount;
+				uint32_t presentModeCount = 0;
 				vkGetPhysicalDeviceSurfacePresentModesKHR(device, presentSurface, &presentModeCount, VK_NULL_HANDLE);
 				details.presentModes.resize(presentModeCount);
 				vkGetPhysicalDeviceSurfacePresentModesKHR(device, presentSurface, &presentModeCount, details.presentModes.data());
@@ -351,8 +359,10 @@
 					requiredExtensions.erase(extension.extensionName);
 
 				#if TVK_VALIDATION_LAYERS
-					for (const auto& extension : requiredExtensions)
-						std::cout << "UNAVAILABLE EXTENSIONS: " << extension << std::endl;
+					if (requiredExtensions.size() > 0)
+						std::cout << "TinyVulkan: Unavailable Extensions: " << requiredExtensions.size() << std::endl;
+					
+					for (const auto& extension : requiredExtensions) std::cout << "\t" << extension << std::endl;
 				#endif
 
 				return requiredExtensions.empty();
@@ -370,9 +380,12 @@
 				TinyVkQueueFamily indices = FindQueueFamilies(device);
 				bool supportsExtensions = QueryDeviceExtensionSupport(device);
 
-				TinyVkSwapChainSupporter swapChainSupport = QuerySwapChainSupport(device);
-				bool swapChainAdequate = !swapChainSupport.formats.empty() && !swapChainSupport.presentModes.empty();
-				bool requiresPresent = (presentSurface == VK_NULL_HANDLE) || (presentSurface != VK_NULL_HANDLE && indices.HasPresentFamily() && swapChainAdequate);
+				bool swapChainAdequate = false;
+				if (presentSurface != VK_NULL_HANDLE) {
+					TinyVkSwapChainSupporter swapChainSupport = QuerySwapChainSupport(device);
+					swapChainAdequate = !swapChainSupport.formats.empty() && !swapChainSupport.presentModes.empty();
+				}
+				bool requiresPresent = (presentSurface == VK_NULL_HANDLE) || (presentSurface != VK_NULL_HANDLE && indices.hasPresentFamily && swapChainAdequate);
 				
 				bool hasType = false;
 				for (auto type : deviceTypes)
@@ -383,8 +396,8 @@
 				for(size_t i = 0; i < sizeof(VkPhysicalDeviceFeatures)/sizeof(VkBool32); i++)
 					if (featuresA.features[i] && !featuresB.features[i]) hasFeatures = false;
 
-				bool hasCompute = (useComputeBit && indices.HasComputeFamily()) || !useComputeBit;
-				return indices.HasGraphicsFamily() && hasCompute && hasType && supportsExtensions && requiresPresent && hasFeatures;
+				bool hasCompute = (useComputeBit && indices.hasComputeFamily) || !useComputeBit;
+				return indices.hasGraphicsFamily && hasCompute && hasType && supportsExtensions && requiresPresent && hasFeatures;
 			}
 
 			/// <summary>Returns a Vector of suitable VkPhysicalDevices (GPU/iGPU).</summary>

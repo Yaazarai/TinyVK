@@ -56,7 +56,7 @@
 
 				VkShaderModule shaderModule;
 				if (vkCreateShaderModule(vkdevice.GetLogicalDevice(), &createInfo, VK_NULL_HANDLE, &shaderModule) != VK_SUCCESS)
-					throw std::runtime_error("TinyVulkan: Failed to create shader module!");
+					throw TinyVkRuntimeError("TinyVulkan: Failed to create shader module!");
 
 				return shaderModule;
 			}
@@ -79,7 +79,7 @@
 				std::ifstream file(path, std::ios::ate | std::ios::binary);
 
 				if (!file.is_open())
-					throw std::runtime_error("TinyVulkan: Failed to Read File: " + path);
+					throw TinyVkRuntimeError("TinyVulkan: Failed to Read File: " + path);
 
 				size_t fsize = static_cast<size_t>(file.tellg());
 				std::vector<char> buffer(fsize);
@@ -122,14 +122,14 @@
 					descriptorCreateInfo.pBindings = descriptorBindings.data();
 
 					if (vkCreateDescriptorSetLayout(vkdevice.GetLogicalDevice(), &descriptorCreateInfo, VK_NULL_HANDLE, &descriptorLayout) != VK_SUCCESS)
-						throw std::runtime_error("TinyVulkan: Failed to create push descriptor bindings! ");
+						throw TinyVkRuntimeError("TinyVulkan: Failed to create push descriptor bindings! ");
 
 					pipelineLayoutInfo.setLayoutCount = 1;
 					pipelineLayoutInfo.pSetLayouts = &descriptorLayout;
 				}
 
 				if (vkCreatePipelineLayout(vkdevice.GetLogicalDevice(), &pipelineLayoutInfo, VK_NULL_HANDLE, &pipelineLayout) != VK_SUCCESS)
-					throw std::runtime_error("TinyVulkan: Failed to create graphics pipeline layout!");
+					throw TinyVkRuntimeError("TinyVulkan: Failed to create graphics pipeline layout!");
 				
 				///////////////////////////////////////////////////////////////////////////////////////////////////////
 				///////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -252,7 +252,7 @@
 				pipelineInfo.basePipelineIndex = -1; // Optional
 
 				if (vkCreateGraphicsPipelines(vkdevice.GetLogicalDevice(), VK_NULL_HANDLE, 1, &pipelineInfo, VK_NULL_HANDLE, &graphicsPipeline) != VK_SUCCESS)
-					throw std::runtime_error("TinyVulkan: Failed to create graphics pipeline!");
+					throw TinyVkRuntimeError("TinyVulkan: Failed to create graphics pipeline!");
 				
 				for(auto shaderModule : shaderModules)
 					vkDestroyShaderModule(vkdevice.GetLogicalDevice(), shaderModule, VK_NULL_HANDLE);
@@ -281,10 +281,13 @@
 				this->enableDepthTesting = enableDepthTesting;
 
 				TinyVkQueueFamily indices = vkdevice.FindQueueFamilies();
-				vkGetDeviceQueue(vkdevice.GetLogicalDevice(), indices.graphicsFamily.value(), 0, &graphicsQueue);
+				if (!indices.HasGraphicsFamily() && !indices.HasPresentFamily())
+					throw TinyVkRuntimeError("TinyVulkan: Could not locate graphics queue family for TinyVkGraphicsPipeline!");
+				
+				vkGetDeviceQueue(vkdevice.GetLogicalDevice(), indices.graphicsFamily, 0, &graphicsQueue);
 				
 				if (vkdevice.GetPresentSurface() != VK_NULL_HANDLE)
-					vkGetDeviceQueue(vkdevice.GetLogicalDevice(), indices.presentFamily.value(), 0, &presentQueue);
+					vkGetDeviceQueue(vkdevice.GetLogicalDevice(), indices.presentFamily, 0, &presentQueue);
 
 				CreateGraphicsPipeline(shaders);
 			}
@@ -313,7 +316,7 @@
 					}
 				}
 
-				throw std::runtime_error("TinyVulkan: Failed to find supported format!");
+				throw TinyVkRuntimeError("TinyVulkan: Failed to find supported format!");
 			}
 
 			/// <summary>Returns true/false whether alpha blending is enabled on the graphics pipeline.</summary>

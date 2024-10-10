@@ -6,6 +6,21 @@
 	namespace TINYVULKAN_NAMESPACE {
 		#pragma region VULKAN_DEBUG_UTILITIES
 
+		class TinyVkRuntimeError : public std::runtime_error {
+			public:
+			explicit TinyVkRuntimeError(const std::string& _Message) : runtime_error(_Message.c_str()) {
+				#if TVK_VALIDATION_LAYERS
+				std::cout << "[runtime error] " << _Message << std::endl;
+				#endif
+			}
+
+			explicit TinyVkRuntimeError(const char* _Message) : runtime_error(_Message) {
+				#if TVK_VALIDATION_LAYERS
+				std::cout << "[runtime error] " << _Message << std::endl;
+				#endif
+			}
+		};
+
 		VkResult CreateDebugUtilsMessengerEXT(VkInstance instance, const VkDebugUtilsMessengerCreateInfoEXT* pCreateInfo, const VkAllocationCallbacks* pAllocator, VkDebugUtilsMessengerEXT* pDebugMessenger) {
 			auto func = (PFN_vkCreateDebugUtilsMessengerEXT)vkGetInstanceProcAddr(instance, "vkCreateDebugUtilsMessengerEXT");
 			if (func != VK_NULL_HANDLE) return func(instance, pCreateInfo, pAllocator, pDebugMessenger);
@@ -38,7 +53,7 @@
 		VkResult vkCmdBeginRenderingEKHR(VkInstance instance, VkCommandBuffer commandBuffer, const VkRenderingInfo* pRenderingInfo) {
 			#if TVK_VALIDATION_LAYERS
 				if (vkCmdBeginRenderingEXTKHR == VK_NULL_HANDLE)
-					throw std::runtime_error("TinyVulkan: Failed to load VK_KHR_dynamic_rendering EXT function: PFN_vkCmdBeginRenderingKHR");
+					throw TinyVkRuntimeError("TinyVulkan: Failed to load VK_KHR_dynamic_rendering EXT function: PFN_vkCmdBeginRenderingKHR");
 			#endif
 
 			vkCmdBeginRenderingEXTKHR(commandBuffer, pRenderingInfo);
@@ -48,7 +63,7 @@
 		VkResult vkCmdEndRenderingEKHR(VkInstance instance, VkCommandBuffer commandBuffer) {
 			#if TVK_VALIDATION_LAYERS
 				if (vkCmdEndRenderingEXTKHR == VK_NULL_HANDLE)
-					throw std::runtime_error("TinyVulkan: Failed to load VK_KHR_dynamic_rendering EXT function: PFN_vkCmdEndRenderingKHR");
+					throw TinyVkRuntimeError("TinyVulkan: Failed to load VK_KHR_dynamic_rendering EXT function: PFN_vkCmdEndRenderingKHR");
 			#endif
 
 			vkCmdEndRenderingEXTKHR(commandBuffer);
@@ -58,7 +73,7 @@
 		VkResult vkCmdPushDescriptorSetEKHR(VkInstance instance, VkCommandBuffer commandBuffer, VkPipelineBindPoint bindPoint, VkPipelineLayout layout, uint32_t set, uint32_t writeCount, const VkWriteDescriptorSet* pWriteSets) {
 			#if TVK_VALIDATION_LAYERS
 				if (vkCmdPushDescriptorSetEXTKHR == VK_NULL_HANDLE)
-					throw std::runtime_error("TinyVulkan: Failed to load VK_KHR_dynamic_rendering EXT function: PFN_vkCmdPushDescriptorSetKHR");
+					throw TinyVkRuntimeError("TinyVulkan: Failed to load VK_KHR_dynamic_rendering EXT function: PFN_vkCmdPushDescriptorSetKHR");
 			#endif
 
 			vkCmdPushDescriptorSetEXTKHR(commandBuffer, bindPoint, layout, set, writeCount, pWriteSets);

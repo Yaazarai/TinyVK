@@ -26,7 +26,7 @@
         DEVICE EXTENSIONS:
 			VK_KHR_SWAPCHAIN_EXTENSION_NAME,             // Swapchain support for buffering frame images with the device driver to reduce tearing.
 			VK_KHR_CREATE_RENDERPASS_2_EXTENSION_NAME,   // Dynamic Rendering Dependency.
-			VK_KHR_DEPTH_STENCIL_RESOLVE_EXTENSION_NAME, // Dynamic Rendering Dependency.
+			VK_KHR_DEPTH_STENCIL_RESOLVE_EXTENSION_NAME, // Depth fragment testing (discard fragments if fail depth test, if enabled in the graphics pipeline).
 			VK_KHR_DYNAMIC_RENDERING_EXTENSION_NAME,     // Allows for rendering without framebuffers and render passes.
 			VK_KHR_PUSH_DESCRIPTOR_EXTENSION_NAME        // Allows for writing descriptors directly into a command buffer rather than allocating from sets / pools.
 

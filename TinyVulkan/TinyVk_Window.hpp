@@ -87,7 +87,7 @@
 				glfwWindowHint(GLFW_TRANSPARENT_FRAMEBUFFER, (transparentFramebuffer) ? GLFW_TRUE : GLFW_FALSE);
 
 				if (!glfwVulkanSupported())
-					throw new std::runtime_error("TinyVulkan: GLFW implementation could not locate Vulkan loader.");
+					throw TinyVkRuntimeError("TinyVulkan: GLFW implementation could not locate Vulkan loader.");
 
 				hwndResizable = resizable;
 				hwndWidth = width;
@@ -187,7 +187,7 @@
 			VkSurfaceKHR CreateWindowSurface(VkInstance instance) {
 				VkSurfaceKHR wndSurface;
 				if (glfwCreateWindowSurface(instance, hwndWindow, VK_NULL_HANDLE, &wndSurface) != VK_SUCCESS)
-					throw std::runtime_error("TinyVulkan: Failed to create GLFW Window Surface!");
+					throw TinyVkRuntimeError("TinyVulkan: Failed to create GLFW Window Surface!");
 				return wndSurface;
 			}
 
@@ -195,16 +195,12 @@
 			GLFWwindow* GetWindowHandle() { return hwndWindow; }
 
 			/// <summary>Gets the required GLFW extensions.</summary>
-			static std::vector<const char*> QueryRequiredExtensions(bool enableValidationLayers) {
+			static std::vector<const char*> QueryRequiredExtensions() {
 				glfwInit();
 
 				uint32_t glfwExtensionCount = 0;
 				const char** glfwExtensions = glfwGetRequiredInstanceExtensions(&glfwExtensionCount);
 				std::vector<const char*> extensions(glfwExtensions, glfwExtensions + glfwExtensionCount);
-
-				if (enableValidationLayers)
-					extensions.push_back(VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
-
 				return extensions;
 			}
 

@@ -44,7 +44,6 @@
 			std::vector<VkFence> imageInFlight;
 			std::vector<TinyVkCommandPool*> imageCmdPools;
 
-			
 			uint32_t currentSyncFrame = 0; // Current Synchronized Frame (Ordered).
 			uint32_t currentSwapFrame = 0; // Current SwapChain Image Frame (Out of Order).
 			std::atomic_bool presentable, refreshable;
@@ -80,7 +79,10 @@
 				createInfo.imageUsage = imageUsage;
 
 				TinyVkQueueFamily indices = renderContext.vkdevice.FindQueueFamilies();
-				uint32_t queueFamilyIndices[] = { indices.graphicsFamily.value(), indices.presentFamily.value() };
+				if (!indices.HasGraphicsFamily() || !indices.HasPresentFamily())
+					throw TinyVkRuntimeError("TinyVulkan: Could not locate graphics and present queue families for TinyVkSwapchainRenderer!");
+								
+				uint32_t queueFamilyIndices[] = { indices.graphicsFamily, indices.presentFamily };
 
 				if (indices.graphicsFamily != indices.presentFamily) {
 					createInfo.imageSharingMode = VK_SHARING_MODE_CONCURRENT;
@@ -99,7 +101,7 @@
 				createInfo.oldSwapchain = swapChain;
 
 				if (vkCreateSwapchainKHR(renderContext.vkdevice.GetLogicalDevice(), &createInfo, VK_NULL_HANDLE, &swapChain) != VK_SUCCESS)
-					throw std::runtime_error("TinyVulkan: Failed to create swap chain!");
+					throw TinyVkRuntimeError("TinyVulkan: Failed to create swap chain!");
 
 				vkGetSwapchainImagesKHR(renderContext.vkdevice.GetLogicalDevice(), swapChain, &imageCount, VK_NULL_HANDLE);
 				
@@ -139,7 +141,7 @@
 					} else { createInfo = *createInfoEx; }
 
 					if (vkCreateImageView(renderContext.vkdevice.GetLogicalDevice(), &createInfo, VK_NULL_HANDLE, &imageSources[i]->imageView) != VK_SUCCESS)
-						throw std::runtime_error("TinyVulkan: Failed to create swap chain image views!");
+						throw TinyVkRuntimeError("TinyVulkan: Failed to create swap chain image views!");
 				}
 			}
 
@@ -167,7 +169,7 @@
 					if (vkCreateSemaphore(renderContext.vkdevice.GetLogicalDevice(), &semaphoreInfo, VK_NULL_HANDLE, &imageAvailable[i]) != VK_SUCCESS ||
 						vkCreateSemaphore(renderContext.vkdevice.GetLogicalDevice(), &semaphoreInfo, VK_NULL_HANDLE, &imageFinished[i]) != VK_SUCCESS ||
 						vkCreateFence(renderContext.vkdevice.GetLogicalDevice(), &fenceInfo, VK_NULL_HANDLE, &imageInFlight[i]) != VK_SUCCESS)
-						throw std::runtime_error("TinyVulkan: Failed to create synchronization objects for a frame!");
+						throw TinyVkRuntimeError("TinyVulkan: Failed to create synchronization objects for a frame!");
 					
 					imageSources[i]->imageAvailable = imageAvailable[i];
 					imageSources[i]->imageFinished = imageFinished[i];
@@ -257,9 +259,9 @@
 				return vkQueuePresentKHR(renderContext.graphicsPipeline.GetPresentQueue(), &presentInfo);
 			}
 
-			void RenderSwapChain() {
-				if (refreshable) { OnFrameBufferResizeCallbackNoLock(window.GetHandle(), window.GetWidth(), window.GetHeight()); return; }
-				if (!presentable) return;
+			VkResult RenderSwapChain() {
+				if (refreshable) { OnFrameBufferResizeCallbackNoLock(window.GetHandle(), window.GetWidth(), window.GetHeight()); return VK_SUBOPTIMAL_KHR; }
+				if (!presentable) return VK_ERROR_OUT_OF_DATE_KHR;
 				
 				VkResult result = QueryNextImage();
 				TinyVkImage* swapDepthImage = (renderContext.graphicsPipeline.DepthTestingIsEnabled())? imageDepthSources[currentSyncFrame]: VK_NULL_HANDLE;
@@ -271,7 +273,7 @@
 				this->SetRenderTarget(imageCmdPools[currentSyncFrame], imageSources[currentSwapFrame], swapDepthImage, false);
 
 				if (result == VK_SUCCESS) {
-					result = this->RenderExecute(false);
+					result = this->TinyVkGraphicsRenderer::RenderExecute(false);
 					if (result == VK_SUCCESS)
 						result = this->RenderPresent();
 				}
@@ -281,7 +283,9 @@
 					presentable = false;
 					currentSyncFrame = 0;
 				} else if (result != VK_SUCCESS && result != VK_SUBOPTIMAL_KHR)
-					throw std::runtime_error("TinyVulkan: Failed to acquire swap chain image or submit to draw queue!");
+					throw TinyVkRuntimeError("TinyVulkan: Failed to acquire swap chain image or submit to draw queue!");
+				
+				return result;
 			}
 		public:
 			TinyVkWindow& window;
@@ -330,7 +334,7 @@
 				imageExtent = (VkExtent2D) { static_cast<uint32_t>(window.GetWidth()), static_cast<uint32_t>(window.GetHeight()) };
 
 				for(size_t i = 0; i < static_cast<size_t>(bufferingMode); i++)
-					imageCmdPools.push_back(new TinyVkCommandPool(renderContext.vkdevice, cmdpoolbuffercount));
+					imageCmdPools.push_back(new TinyVkCommandPool(renderContext.vkdevice, false, cmdpoolbuffercount));
 				
 				if (renderContext.graphicsPipeline.DepthTestingIsEnabled())
 					for(size_t i = 0; i < static_cast<size_t>(bufferingMode); i++)
@@ -345,7 +349,7 @@
 				if (hwndWindow != window.GetHandle()) return;
 
 				if (width > 0 && height > 0) {
-					vkDeviceWaitIdle(renderContext.vkdevice.GetLogicalDevice());
+					renderContext.vkdevice.DeviceWaitIdle();
 
 					for(auto swapImage : imageSources) {
 						vkDestroyImageView(renderContext.vkdevice.GetLogicalDevice(), swapImage->imageView, VK_NULL_HANDLE);
@@ -388,10 +392,10 @@
 			}
 
 			/// <summary>Executes the registered onRenderEvents and presents them to the SwapChain(Window).</summary>
-			void RenderSwapChainExecute() {
+			VkResult RenderExecute(bool waitFences = true) override {
 				timed_guard swapChainLock(swapChainMutex);
-				if (!swapChainLock.Acquired()) return;
-				RenderSwapChain();
+				if (!swapChainLock.Acquired()) return VK_ERROR_OUT_OF_DATE_KHR;
+				return RenderSwapChain();
 			}
 		};
 	}

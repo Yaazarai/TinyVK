@@ -18,10 +18,10 @@ const std::vector<VkDescriptorSetLayoutBinding> pushDescriptorLayouts = { TinyVk
 
 int32_t TINYVULKAN_WINDOWMAIN {
     TinyVkWindow window("Sample Application", 1920, 1080, true, false);
-    TinyVkVulkanDevice vkdevice("Sample Application", false, rdeviceTypes, &window, window.QueryRequiredExtensions(TINYVK_VALIDATION_LAYERS));
-    TinyVkCommandPool commandPool(vkdevice);
-    TinyVkGraphicsPipeline pipeline(vkdevice, vertexDescription, defaultShaders, pushDescriptorLayouts, {}, false);
+    TinyVkVulkanDevice vkdevice("Sample Application", false, rdeviceTypes, &window);    
+    TinyVkCommandPool commandPool(vkdevice, false);
 
+    TinyVkGraphicsPipeline pipeline(vkdevice, vertexDescription, defaultShaders, pushDescriptorLayouts, {}, false);
     TinyVkRenderContext renderContext(vkdevice, commandPool, pipeline);
     TinyVkSwapchainRenderer swapRenderer(renderContext, window, bufferingMode, TinyVkCommandPool::defaultCommandPoolSize);
     //TinyVkComputeRender computeRenderer(renderContext, computeVertexDescription, computeDefaultShaders, computePushDescriptorLayouts, {}, false);
@@ -61,8 +61,6 @@ int32_t TINYVULKAN_WINDOWMAIN {
     );
     
     /// TESTING RENDERCONTEXT CHANGES WITH THE IMAGE RENDERER.
-    //TinyVkCommandPool commandPool2(vkdevice);
-    //TinyVkRenderContext renderContext2(vkdevice, commandPool2, pipeline);
     TinyVkImage sourceImage(renderContext, TinyVkImageType::TINYVK_IMAGE_TYPE_COLORATTACHMENT, 960, 540);
     TinyVkGraphicsRenderer imageRenderer(renderContext, &commandPool, &sourceImage, VK_NULL_HANDLE);
     
@@ -128,16 +126,12 @@ int32_t TINYVULKAN_WINDOWMAIN {
     }));
 
     // MULTI-THREADED: (window events on main, rendering on secondary)
-    std::thread mythread([&window, &swapRenderer]() { while (!window.ShouldClose()) { swapRenderer.RenderSwapChainExecute(); } });
+    std::thread mythread([&window, &swapRenderer]() { while (!window.ShouldClose()) { swapRenderer.RenderExecute(); } });
     window.WhileMain(true);
     mythread.join();
 
     // SINGLE-THREADED: (window/render events within the same thread, window events will block rendering temporarily)
     //window.onWhileMain.hook(TinyVkCallback<std::atomic_bool&>([&swapRenderer](std::atomic_bool& check){ swapRenderer.RenderSwapChain(); }));
     //window.WhileMain(false);
-
-    std::cout << "[Window Frozen] Awating user input before closing..." << std::endl;
-    int xx = 0;
-    std::cin >> xx;
     return VK_SUCCESS;
 }

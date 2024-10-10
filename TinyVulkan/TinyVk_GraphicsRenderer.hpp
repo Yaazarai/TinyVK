@@ -46,7 +46,7 @@
 			TinyVkGraphicsRenderer(TinyVkRenderContext& renderContext, TinyVkCommandPool* cmdPool, TinyVkImage* renderTarget, TinyVkImage* optionalDepthImage = VK_NULL_HANDLE)
             : renderContext(renderContext), commandPool(cmdPool), renderTarget(renderTarget), optionalDepthImage(optionalDepthImage) {
                 if (renderContext.graphicsPipeline.DepthTestingIsEnabled() && optionalDepthImage == VK_NULL_HANDLE)
-                    throw std::runtime_error("TinyVulkan: Trying to create TinyVkGraphicsRenderer without depth image [VK_NULL_HANDLE]! on depth testing enabled graphics pipeline!");
+                    throw TinyVkRuntimeError("TinyVulkan: Trying to create TinyVkGraphicsRenderer without depth image [VK_NULL_HANDLE]! on depth testing enabled graphics pipeline!");
             }
 
 			/// <summary>Sets the target image/texture for the TinyVkImageRenderer.</summary>
@@ -57,7 +57,7 @@
 				}
 
                 if (renderContext.graphicsPipeline.DepthTestingIsEnabled() && optionalDepthImage == VK_NULL_HANDLE)
-                    throw std::runtime_error("TinyVulkan: Trying to reset render target on TinyVkGraphicsRenderer without depth image on depth testing enabled graphics pipeline!");
+                    throw TinyVkRuntimeError("TinyVulkan: Trying to reset render target on TinyVkGraphicsRenderer without depth image on depth testing enabled graphics pipeline!");
                 
                 this->commandPool = cmdPool;
 				this->renderTarget = renderTarget;
@@ -83,7 +83,7 @@
 				beginInfo.pInheritanceInfo = VK_NULL_HANDLE; // Optional
 
 				if (vkBeginCommandBuffer(commandBuffer, &beginInfo) != VK_SUCCESS)
-					throw std::runtime_error("TinyVulkan: Failed to record [begin] to command buffer!");
+					throw TinyVkRuntimeError("TinyVulkan: Failed to record [begin] to command buffer!");
                 
                 renderTarget->TransitionLayoutBarrier(commandBuffer, TinyVkCmdBufferSubmitStage::TINYVK_BEGIN, TinyVkImageLayout::TINYVK_COLOR_ATTACHMENT);
 
@@ -109,7 +109,7 @@
 				VkRenderingAttachmentInfoKHR depthStencilAttachmentInfo{};
 				if (renderContext.graphicsPipeline.DepthTestingIsEnabled()) {
                     if (optionalDepthImage == VK_NULL_HANDLE)
-                        throw std::runtime_error("TinyVulkan: Trying to render with TinyVkGraphicsRenderer without depth image [VK_NULL_HANDLE]! on depth testing enabled graphics pipeline!");
+                        throw TinyVkRuntimeError("TinyVulkan: Trying to render with TinyVkGraphicsRenderer without depth image [VK_NULL_HANDLE]! on depth testing enabled graphics pipeline!");
 					
                     optionalDepthImage->TransitionLayoutBarrier(commandBuffer, TinyVkCmdBufferSubmitStage::TINYVK_BEGIN, TinyVkImageLayout::TINYVK_DEPTHSTENCIL_ATTACHMENT);
 
@@ -133,7 +133,7 @@
 				vkCmdSetScissor(commandBuffer, 0, 1, &renderAreaKHR);
                 
                 if (vkCmdBeginRenderingEKHR(renderContext.vkdevice.GetInstance(), commandBuffer, &dynamicRenderInfo) != VK_SUCCESS)
-					throw std::runtime_error("TinyVulkan: Failed to record [begin] to rendering!");
+					throw TinyVkRuntimeError("TinyVulkan: Failed to record [begin] to rendering!");
 				
 				vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, renderContext.graphicsPipeline.GetGraphicsPipeline());
 			}
@@ -141,25 +141,25 @@
 			/// <summary>Ends recording render commands to the provided command buffer.</summary>
 			void EndRecordCmdBuffer(VkCommandBuffer commandBuffer, std::vector<TinyVkImage*> syncImages = {}, std::vector<TinyVkBuffer*> syncBuffers = {}, const VkClearValue clearColor = { 0.0f, 0.0f, 0.0f, 1.0f }, const VkClearValue depthStencil = { .depthStencil = { 1.0f, 0 } }) {
 				if (vkCmdEndRenderingEKHR(renderContext.vkdevice.GetInstance(), commandBuffer) != VK_SUCCESS)
-					throw std::runtime_error("TinyVulkan: Failed to record [end] to rendering!");
+					throw TinyVkRuntimeError("TinyVulkan: Failed to record [end] to rendering!");
 
 				renderTarget->TransitionLayoutBarrier(commandBuffer, TinyVkCmdBufferSubmitStage::TINYVK_END, (renderTarget->imageType == TinyVkImageType::TINYVK_IMAGE_TYPE_SWAPCHAIN)? TinyVkImageLayout::TINYVK_PRESENT_SRC : TinyVkImageLayout::TINYVK_COLOR_ATTACHMENT);
 
 				if (renderContext.graphicsPipeline.DepthTestingIsEnabled()) {
                     if (optionalDepthImage == VK_NULL_HANDLE)
-                        throw std::runtime_error("TinyVulkan: Trying to render with TinyVkGraphicsRenderer without depth image [VK_NULL_HANDLE] on depth testing enabled graphics pipeline!");
+                        throw TinyVkRuntimeError("TinyVulkan: Trying to render with TinyVkGraphicsRenderer without depth image [VK_NULL_HANDLE] on depth testing enabled graphics pipeline!");
 					
                     optionalDepthImage->TransitionLayoutBarrier(commandBuffer, TinyVkCmdBufferSubmitStage::TINYVK_END, TinyVkImageLayout::TINYVK_DEPTHSTENCIL_ATTACHMENT);
 				}
 
 				if (vkEndCommandBuffer(commandBuffer) != VK_SUCCESS)
-					throw std::runtime_error("TinyVulkan: Failed to record [end] to command buffer!");
+					throw TinyVkRuntimeError("TinyVulkan: Failed to record [end] to command buffer!");
 			}
 			
 			/// <summary>Executes the registered onRenderEvents and renders them to the target image/texture.</summary>
-			VkResult RenderExecute(bool waitFences = true) {
+			virtual VkResult RenderExecute(bool waitFences = true) {
 				if (renderTarget == VK_NULL_HANDLE)
-                    throw new std::runtime_error("TinyVulkan: RenderTarget for TinyVkImageRenderer is [VK_NULL_HANDLE]!");
+                    throw TinyVkRuntimeError("TinyVulkan: RenderTarget for TinyVkImageRenderer is [VK_NULL_HANDLE]!");
 				
 				if (waitFences) {
 					vkWaitForFences(renderContext.vkdevice.GetLogicalDevice(), 1, &renderTarget->imageWaitable, VK_TRUE, UINT64_MAX);
@@ -169,7 +169,7 @@
 				//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 				if (renderContext.graphicsPipeline.DepthTestingIsEnabled()) {
                     if (optionalDepthImage == VK_NULL_HANDLE)
-                        throw std::runtime_error("TinyVulkan: Trying to render with TinyVkGraphicsRenderer without depth image [VK_NULL_HANDLE]! on depth testing enabled graphics pipeline!");
+                        throw TinyVkRuntimeError("TinyVulkan: Trying to render with TinyVkGraphicsRenderer without depth image [VK_NULL_HANDLE]! on depth testing enabled graphics pipeline!");
                     
                     if (optionalDepthImage->width != renderTarget->width || optionalDepthImage->height != renderTarget->height) {
 						optionalDepthImage->Disposable(false);
@@ -206,7 +206,7 @@
 
 				VkResult result = vkQueueSubmit(renderContext.graphicsPipeline.GetGraphicsQueue(), 1, &submitInfo, renderTarget->imageWaitable);
 				if (result != VK_SUCCESS)
-					throw std::runtime_error("TinyVulkan: Failed to submit draw command buffer!");
+					throw TinyVkRuntimeError("TinyVulkan: Failed to submit draw command buffer!");
 				return result;
 			}
 
@@ -214,7 +214,7 @@
 			VkResult RenderExecuteThreadSafe() {
 				timed_guard imageLock(renderTarget->image_lock);
 				if (!imageLock.Acquired()) {
-					throw new std::runtime_error("TinyVulkan: could not acquire lock for renderer! Running in another thread?");
+					throw TinyVkRuntimeError("TinyVulkan: could not acquire lock for renderer! Running in another thread?");
 					return VK_ERROR_OUT_OF_DATE_KHR;
 				}
 				return RenderExecute();

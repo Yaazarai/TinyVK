@@ -47,7 +47,7 @@
 				allocCreateInfo.flags = flags;
 				
 				if (vmaCreateBuffer(renderContext.vkdevice.GetAllocator(), &bufCreateInfo, &allocCreateInfo, &buffer, &memory, &description) != VK_SUCCESS)
-					throw std::runtime_error("TinyVulkan: Could not allocate memory for TinyVkBuffer!");
+					throw TinyVkRuntimeError("TinyVulkan: Could not allocate memory for TinyVkBuffer!");
 			}
 		
 		public:

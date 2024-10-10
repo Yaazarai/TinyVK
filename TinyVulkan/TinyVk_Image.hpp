@@ -57,7 +57,7 @@
 				createInfo.subresourceRange = { .baseMipLevel = 0, .levelCount = 1, .baseArrayLayer = 0, .layerCount = 1, .aspectMask = aspectFlags, };
 
 				if (vkCreateImageView(renderContext.vkdevice.GetLogicalDevice(), &createInfo, VK_NULL_HANDLE, &imageView) != VK_SUCCESS)
-					throw std::runtime_error("TinyVulkan: Failed to create TinyVkImage view!");
+					throw TinyVkRuntimeError("TinyVulkan: Failed to create TinyVkImage view!");
 			}
 
 			void CreateTextureSampler() {
@@ -84,7 +84,7 @@
 				samplerInfo.maxLod = 0.0f;
 
 				if (vkCreateSampler(renderContext.vkdevice.GetLogicalDevice(), &samplerInfo, VK_NULL_HANDLE, &imageSampler) != VK_SUCCESS)
-					throw std::runtime_error("TinyVulkan: Failed to create image texture sampler!");
+					throw TinyVkRuntimeError("TinyVulkan: Failed to create image texture sampler!");
 			}
 
 			void CreateImageSyncObjects() {
@@ -99,7 +99,7 @@
 				if (vkCreateSemaphore(renderContext.vkdevice.GetLogicalDevice(), &semaphoreInfo, VK_NULL_HANDLE, &imageAvailable) != VK_SUCCESS ||
 					vkCreateSemaphore(renderContext.vkdevice.GetLogicalDevice(), &semaphoreInfo, VK_NULL_HANDLE, &imageFinished) != VK_SUCCESS ||
 					vkCreateFence(renderContext.vkdevice.GetLogicalDevice(), &fenceInfo, VK_NULL_HANDLE, &imageWaitable) != VK_SUCCESS)
-					throw std::runtime_error("TinyVulkan: Failed to create synchronization objects for a image renderer!");
+					throw TinyVkRuntimeError("TinyVulkan: Failed to create synchronization objects for a image renderer!");
 			}
 		public:
 			std::timed_mutex image_lock;
@@ -147,7 +147,7 @@
 				
 				if (type == TinyVkImageType::TINYVK_IMAGE_TYPE_SWAPCHAIN) {
 					if (imageSource == VK_NULL_HANDLE)
-						throw std::runtime_error("TinyVulkan: passed SwapChain image is: VK_NULL_HANDLE");
+						throw TinyVkRuntimeError("TinyVulkan: passed SwapChain image is: VK_NULL_HANDLE");
 					imageLayout = TinyVkImageLayout::TINYVK_UNDEFINED;
 					aspectFlags = VK_IMAGE_ASPECT_COLOR_BIT;
 				} else {
@@ -158,7 +158,7 @@
 			/// <summary>Recreates this TinyVkImage using a new layout/format (don't forget to call image.Disposable(bool waitIdle) to dispose of the previous image first.</summary>
 			void ReCreateImage(TinyVkImageType type, VkDeviceSize width, VkDeviceSize height, VkFormat format = VK_FORMAT_R16G16B16A16_UNORM, VkSamplerAddressMode addressingMode = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE) {
 				if (type == TinyVkImageType::TINYVK_IMAGE_TYPE_SWAPCHAIN)
-					throw std::runtime_error("TinyVulkan: Tried to manually re-create swapchain allocated image!");
+					throw TinyVkRuntimeError("TinyVulkan: Tried to manually re-create swapchain allocated image!");
 
 				VkImageCreateInfo imgCreateInfo = {
 					.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO,
@@ -198,7 +198,7 @@
 				allocCreateInfo.priority = 1.0f;
 				
 					if (vmaCreateImage(renderContext.vkdevice.GetAllocator(), &imgCreateInfo, &allocCreateInfo, &image, &memory, VK_NULL_HANDLE) != VK_SUCCESS)
-						throw std::runtime_error("TinyVulkan: Could not allocate GPU image data for TinyVkImage!");
+						throw TinyVkRuntimeError("TinyVulkan: Could not allocate GPU image data for TinyVkImage!");
 				
 				CreateTextureSampler();
 				CreateImageView();
@@ -481,7 +481,7 @@
 			/// <summary>Copies data from this TinyVkImage into the destination TinyVkBuffer</summary>
 			static void TransferImageCmd(TinyVkRenderContext& renderContext, TinyVkImage& srcImage, TinyVkImage& dstImage, VkDeviceSize dataSize) {
 				if (srcImage.format != dstImage.format)
-					throw std::runtime_error("TinyVulkan: Tried to copy [SOURCE] image to [DESTINATION] image with different VkImageFormat!");
+					throw TinyVkRuntimeError("TinyVulkan: Tried to copy [SOURCE] image to [DESTINATION] image with different VkImageFormat!");
 				
 				TinyVkBuffer buffer(renderContext, dataSize, TinyVkBufferType::TINYVK_BUFFER_TYPE_STAGING);
 				srcImage.TransferToBufferCmd(buffer);
@@ -491,7 +491,7 @@
 			/// <summary>Copies data from this TinyVkImage into the destination TinyVkBuffer</summary>
 			static void TransferImageCmdExt(TinyVkRenderContext& renderContext, TinyVkImage& srcImage, TinyVkImage& dstImage, VkDeviceSize dataSize, VkExtent2D size, VkOffset2D srcOffset, VkOffset2D dstOffset) {
 				if (srcImage.format != dstImage.format)
-					throw std::runtime_error("TinyVulkan: Tried to copy [SOURCE] image to [DESTINATION] image with different VkImageFormat!");
+					throw TinyVkRuntimeError("TinyVulkan: Tried to copy [SOURCE] image to [DESTINATION] image with different VkImageFormat!");
 				
 				TinyVkBuffer buffer(renderContext, dataSize, TinyVkBufferType::TINYVK_BUFFER_TYPE_STAGING);
 				srcImage.TransferToBufferCmdExt(buffer, size, srcOffset);
