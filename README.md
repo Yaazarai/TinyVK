@@ -6,6 +6,16 @@ This is a fork of [TinyVulkan-Dynamic (e3339c9)](https://github.com/Yaazarai/Tin
 
 Provided however is a batch script development environment and sample `source.cpp` project which renders a single moving color-interpolated quad (requiring you to install the ***clang-cl/LLVM*** compiler/linker) which you can run using `buildtools.bat` to open a console window and then run any of the `_DEBUG`/`_RELEASE`/`_SHADERS` build commands. Please make sure to set your own library paths for LLVM/VULKAN/GLFW/VMA and any other custom library folders within the `buildtools.bat` batch file before compiling. Running the build commands outside of this batch development environment will fail as they do not have the require environment library path variables.
 
+### TinyVK 2.0
+
+As the latest commit [d350d05](https://github.com/Yaazarai/TinyVK/commit/2479cbcdbffedaa2f6de2751178c5fa0f651a70d) TinyVK has been very largely re-worked internally to be more stable, consistent and bug free. The major re-write is transitioning from isolated Swapchain and Image renderers to a single uniform back-end `TinyVkGraphicsRenderer` where the Swapchain renderer `TinyVkSwapchainRenderer` extends the graphics renderer to avoid duplicate code and inconsistent implementation.
+
+Other notable behavioral changes are to **Transfer Commands** which utilize one-time-submit command buffers now reset their command buffer upon completion of the command. This avoids validation layer errors occuring where command buffers end-up re-submitted if using transfer commands within render events. The command pool itself is reset before any render event occurs, but not between render events (to allow queueing up multiple command buffers within a single queue submit & present), thus requiring one-time-submit command buffers to reset themselves to avoid being reallocated for render events and being submitted twice.
+
+* **FUTURE**: Apply pipeline barriers for buffer/image descriptors to render events via `TinyVkGraphicsRenderer.BeginRecordCmdBuffer()` and `TinyVkGraphicsRenderer.EndRecordCmdBuffer()`. Image Descriptors should have their layouts transitioned to `TINYVK_SHADER_READONLY` prior to rendering and then transitioned back to `TINYVK_COLOR_ATTACHMENT` post-rendering.
+
+* **FUTURE**: Implement compute shaders via the `TinyVkComputeRenderer` interface with two different forms of compute rendering: storage buffer vs storage image. These two rendering interfaces will provide the ability to run compute shaders on either a storage buffer (particles, vertices, etc.) or storage images (graphics).
+
 ### Why TinyVK (TinyVulkan)?
 
 Tiny-Vulkan is a great simple renderer (with default 2D camera projection matrix) designed for rapid C++ graphics development, easily compatible with ImGUI for UI applications if needed or standalone for game development. This was not designed for large 3D Voxel rendering projects or the like complexity.
@@ -17,7 +27,7 @@ Look how smooth TinyVK is too...
 
 ### API Structure
 
-Similar to actual Vulkan in order to get a working renderer that presents to a window you create a `TinyVkWindow`, `TinyVkVulkanDevice` -> `TinyVkCommandPool` (for general buffer/image transfer commands) -> `TinyVkGraphicsPipeline` then you can create the `TinyVkSwapChainRenderer` for presenitng ot the screen. In order to create render functions/callbacks you must register render events to the `onRenderEvents` invokable event in either the `TinyVkImageRenderer` or `TinyVkSwapChainRenderer` which will provide a command pool that you can "rent," buffers from to write commands to. Any buffer rented from the provided command pool should NOT be returned to the command pool--as the renderer uses "rented," command buffers during render execution. You can rent out as many command buffers as you want, so long as you've provided a large neough pool when created your renderer. The general layout for creating render events is as follows: hook callback to onRenderEvents, callback accepts reference to command pool, in callback rent command buffers, begin recording command buffer, register render calls, end recording command buffer, then in your main while loop call `RenderExecute()` (see renderer documentation below). Here is an example, also seen below:
+Similar to actual Vulkan in order to get a working renderer that presents to a window you create a `TinyVkWindow`, `TinyVkVulkanDevice` -> `TinyVkCommandPool` (for general buffer/image transfer commands) -> `TinyVkGraphicsPipeline` then you can create the `TinyVkSwapchainRenderer` for presenitng ot the screen. In order to create render functions/callbacks you must register render events to the `onRenderEvents` invokable event in either the `TinyVkGraphicsRenderer` or `TinyVkSwapchainRenderer` which will provide a command pool that you can "rent," buffers from to write commands to. Any buffer rented from the provided command pool should NOT be returned to the command pool--as the renderer uses "rented," command buffers during render execution. You can rent out as many command buffers as you want, so long as you've provided a large neough pool when created your renderer. The general layout for creating render events is as follows: hook callback to onRenderEvents, callback accepts reference to command pool, in callback rent command buffers, begin recording command buffer, register render calls, end recording command buffer, then in your main while loop call `RenderExecute()` (see renderer documentation below). Here is an example, also seen below:
 ```
 swapRenderer.onRenderEvents.hook(TinyVkCallback<TinyVkCommandPool&>([&angle, &window, &swapRenderer, &pipeline, &queue, &clearColor, &depthStencil, &offsets](TinyVkCommandPool& commandPool) {
     auto frame = queue.GetFrameResource();
@@ -72,7 +82,7 @@ Please read the `TinyVulkan.hpp` file for compiler/linker information. Here are 
 
 * **TinyVk_Invokable.hpp**: provides an invokable-callback event pattern. You can create an `TinyVkCallback<T>` to represent a function callback and hook it into an event `TinyVkInvokable<TinyVkCallback<T>>` to be called later. See: [Event-Callback](https://github.com/Yaazarai/Event-Callback) for more information.
 
-* **TInyVk_Utilities**: provides cross-api utilities and Vulkan Debug/Render function loaders. Also provided is the `TinyVkRendererInterface` which is simply a backend interface of supporting `vkCmd*` rendering functions provided to the TinyVk renderers. Then `TinyVkBufferingMode` enum for specifying the screen buffering mode when creating a SwapChain renderer (window renderer). Then `TinyVkSwapChainSUpporter` struct used internally for storing certain SwapChain formatting requirements. Then `TinyVkSurfaceSupporter` which can be passed to `TinyVkSwapChainRenderer` to specify the output format of your renderer--default settings provided:
+* **TInyVk_Utilities**: provides cross-api utilities and Vulkan Debug/Render function loaders. Also provided is the `TinyVkRendererInterface` which is simply a backend interface of supporting `vkCmd*` rendering functions provided to the TinyVk renderers. Then `TinyVkBufferingMode` enum for specifying the screen buffering mode when creating a SwapChain renderer (window renderer). Then `TinyVkSwapChainSUpporter` struct used internally for storing certain SwapChain formatting requirements. Then `TinyVkSurfaceSupporter` which can be passed to `TinyVkSwapchainRenderer` to specify the output format of your renderer--default settings provided:
 ```
 VkFormat dataFormat = VK_FORMAT_B8G8R8A8_UNORM;
 VkColorSpaceKHR colorSpace = VK_COLOR_SPACE_SRGB_NONLINEAR_KHR;
@@ -120,14 +130,14 @@ renderer.PushConstants(commandBuffer, VK_SHADER_STAGE_VERTEX_BIT, sizeof(glm::ma
 
 * **TinyVk_Buffer.hpp**: provides the `TinyVkBuffer` which will utilize VMA to allocate the GPU side memory buffer for sending UBO data to the GPU. You can `StageBufferData()` to send data to the GPU, `TransferBufferCmd()` to copy data from one buffer to another or `GetBufferDescriptor()` when pushing the buffer to the GPU as a Push Descriptor.
 
-* **TinyVk_Image.hpp**: provides the `TinyVkImage` which will utilize VMA to allocate the GPU side memory image for rendering data to or for passing textures to shaders. You can `StageImageData()` to copy a CPU image to GPU texture memory, `TransferFromBufferCmd()` to copy data from one buffer to the GPU image or `GetImageDescriptor()` when pushing the image to the GPU as a Push Descriptor. Finally call `ReCreateImage()` to re-use this `TinyVkImage` object and recreate its underlying image using different formatting. The `TinyVkImage` can also be used as a render target for the `TinyVkImageRenderer` for the render-to-texture model.
+* **TinyVk_Image.hpp**: provides the `TinyVkImage` which will utilize VMA to allocate the GPU side memory image for rendering data to or for passing textures to shaders. You can `StageImageData()` to copy a CPU image to GPU texture memory, `TransferFromBufferCmd()` to copy data from one buffer to the GPU image or `GetImageDescriptor()` when pushing the image to the GPU as a Push Descriptor. Finally call `ReCreateImage()` to re-use this `TinyVkImage` object and recreate its underlying image using different formatting. The `TinyVkImage` can also be used as a render target for the `TinyVkGraphicsRenderer` for the render-to-texture model.
 
-* **TinyVk_ImageRender.hpp**: provides the `TinyVkImageRenderer` for rendering directly to a GPU texture image instead of presenting directly to the screen. It takes an initial "render target" (`TinyVkImage`) that you can render to or swap render targets by calling `SetRenderTarget()`. You create your image renderer, hook a render event `TinyVkCallback` to `onRenderEvents` and voila, you can render to your target image. Call `RenderExecute(VkCommandBuffer)` to begin rendering. If you have hooked a render event you can leave the command buffer parameter as `VK_NULL_HANDLE` or empty--defaults to null--if you have not hooked an event, you can pass a command buffer with pre-recorded commands. Example:
+* **Tiny_VkGraphicsRenderer.hpp**: provides the `TinyVkGraphicsRenderer` for rendering directly to a GPU texture image instead of presenting directly to the screen. It takes an initial "render target" (`TinyVkImage`) that you can render to or swap render targets by calling `SetRenderTarget()`. You create your image renderer, hook a render event `TinyVkCallback` to `onRenderEvents` and voila, you can render to your target image. Call `RenderExecute(VkCommandBuffer)` to begin rendering. If you have hooked a render event you can leave the command buffer parameter as `VK_NULL_HANDLE` or empty--defaults to null--if you have not hooked an event, you can pass a command buffer with pre-recorded commands. Example:
 ```
 TinyVkVulkanDevice vkdevice("Sample Application", { VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU });
 TinyVkGraphicsPipeline pipeline(vkdevice, VK_FORMAT_B8G8R8A8_UNORM, vertexDescription, defaultShaders, pushDescriptorLayouts, {}, false);
 TinyVkImage image(vkdevice, pipeline, cmdpool, width, height, false /*isdepthimage*/, VK_FORMAT_B8G8R8A8_UNORM, TINYVK_UNDEFINED, VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE, VK_IMAGE_ASPECT_COLOR_BIT);
-TinyVkImageRenderer imageRenderer(vkdevice, &image, pipeline, cmdBufferCount = 32 /*default*/);
+TinyVkGraphicsRenderer imageRenderer(vkdevice, &image, pipeline, cmdBufferCount = 32 /*default*/);
 imageRenderer.onRenderEvents.hook(
     TinyVkCallback<TinyVkCommandPool&>([](TinyVkCommandPool& cmdPool){
         auto commandBuffer = commandPool.LeaseBuffer();
@@ -141,13 +151,13 @@ imageRenderer.onRenderEvents.hook(
 imageRenderer.RenderExecute();
 ```
 
-* **TinyVk_SwapChainRenderer.hpp**: provides the `TinyVkSwapChainRenderer` which functions largely similarly to the `TinyVkImageRenderer` except will render and present to a swapchain and thus to a window instead of a texture. Example:
+* **TinyVk_SwapChainRenderer.hpp**: provides the `TinyVkSwapchainRenderer` which functions largely similarly to the `TinyVkGraphicsRenderer` except will render and present to a swapchain and thus to a window instead of a texture. Example:
 ```
 TinyVkWindow window("Sample Application", 1440, 810, true, false);
 TinyVkVulkanDevice vkdevice("Sample Application", { VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU }, &window, window.QueryRequiredExtensions(TINYVK_VALIDATION_LAYERS));
 TinyVkCommandPool commandPool(vkdevice, DEFAULT_COMMAND_POOLSIZE);
 TinyVkGraphicsPipeline pipeline(vkdevice, VK_FORMAT_B8G8R8A8_UNORM, vertexDescription, defaultShaders, pushDescriptorLayouts, {}, false);
-TinyVkSwapChainRenderer swapRenderer(vkdevice, window, pipeline, bufferingMode);
+TinyVkSwapchainRenderer swapRenderer(vkdevice, window, pipeline, bufferingMode);
 
 swapRenderer.onRenderEvents.hook(
     TinyVkCallback<TinyVkCommandPool&>([](TinyVkCommandPool& cmdPool){
@@ -162,7 +172,7 @@ swapRenderer.onRenderEvents.hook(
 swapRenderer.RenderExecute();
 ```
 
-The `TinyVkImageRenderer` and `TinyVkSwapRenderer` implement the same supporting backend interface `TinyVkRendererInterface` providing the following render functions:
+The `TinyVkGraphicsRenderer` and `TinyVkSwapchainRenderer` implement the same supporting backend interface `TinyVkRendererInterface` providing the following render functions:
 ```
 /// <summary>Begins recording render commands to the provided command buffer.</summary>
 BeginRecordCmdBuffer(const VkClearValue clearColor, const VkClearValue depthStencil, VkCommandBuffer commandBuffer)
@@ -180,7 +190,7 @@ VkResult PushDescriptorSet(VkCommandBuffer cmdBuffer, std::vector<VkWriteDescrip
 PushConstants(VkCommandBuffer cmdBuffer, VkShaderStageFlagBits shaderFlags, uint32_t byteSize, const void* pValues)
 
 /// <summary>Executes the registered onRenderEvents and renders them to the target image/texture.</summary>
-RenderExecute(VkCommandBuffer preRecordedCmdBuffer = VK_NULL_HANDLE /*ONly for TinyVkImageRenderer*/)
+RenderExecute(VkCommandBuffer preRecordedCmdBuffer = VK_NULL_HANDLE /*ONly for TinyVkGraphicsRenderer*/)
 
 /// <summary>Alias call for: vkCmdBindVertexBuffers.</summary>
 CmdBindGeometry(VkCommandBuffer cmdBuffer, const VkBuffer* vertexBuffers, const VkDeviceSize* offsets, uint32_t binding = 0, uint32_t bindingCount = 1)
