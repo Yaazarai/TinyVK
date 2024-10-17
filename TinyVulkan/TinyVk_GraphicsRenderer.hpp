@@ -26,7 +26,7 @@
 		/// be optionally created and utilized if their underlying graphics pipeline supports depth testing.
 		/// 
 
-		/// <summary>Offscreen Rendering (Render-To-Texture Model): Render to VkImage.</summary>
+		/// @brief Offscreen Rendering (Render-To-Texture Model): Render to VkImage.
 		class TinyVkGraphicsRenderer : public TinyVkRendererInterface {
 		protected:
 			TinyVkImage* optionalDepthImage;
@@ -39,17 +39,19 @@
             /// Invokable Render Events: (executed in TinyVkGraphicsRenderer::RenderExecute()
 			TinyVkInvokable<TinyVkCommandPool&> onRenderEvents;
 
-			/// <summary>Deletes the copy-constructor (dynamic resources cannot be copied).</summary>
+			/// @brief Deletes the copy-constructor (dynamic resources cannot be copied).
 			TinyVkGraphicsRenderer operator=(const TinyVkGraphicsRenderer& renderer) = delete;
             
-            /// <summary>Simple render-to-image graphics pipeline renderer.</summary>
+            /// @brief Simple render-to-image graphics pipeline renderer.
 			TinyVkGraphicsRenderer(TinyVkRenderContext& renderContext, TinyVkCommandPool* cmdPool, TinyVkImage* renderTarget, TinyVkImage* optionalDepthImage = VK_NULL_HANDLE)
             : renderContext(renderContext), commandPool(cmdPool), renderTarget(renderTarget), optionalDepthImage(optionalDepthImage) {
                 if (renderContext.graphicsPipeline.DepthTestingIsEnabled() && optionalDepthImage == VK_NULL_HANDLE)
                     throw TinyVkRuntimeError("TinyVulkan: Trying to create TinyVkGraphicsRenderer without depth image [VK_NULL_HANDLE]! on depth testing enabled graphics pipeline!");
             }
 
-			/// <summary>Sets the target image/texture for the TinyVkImageRenderer.</summary>
+			#pragma region RENDER_TARGETING
+			
+			/// @brief Sets the target image/texture for the TinyVkImageRenderer.
 			void SetRenderTarget(TinyVkCommandPool* cmdPool, TinyVkImage* renderTarget, TinyVkImage* optionalDepthImage = VK_NULL_HANDLE, bool waitOldTarget = true) {
 				if (this->renderTarget != VK_NULL_HANDLE && waitOldTarget) {
 					vkWaitForFences(renderContext.vkdevice.GetLogicalDevice(), 1, &renderTarget->imageWaitable, VK_TRUE, UINT64_MAX);
@@ -64,18 +66,24 @@
                 this->optionalDepthImage = optionalDepthImage;
 			}
 
-			/// <summary>Records Push Constants to the command buffer.</summary>
+			#pragma endregion
+			#pragma region PIPELINE_DESCRIPTORS
+			
+			/// @brief Records Push Constants to the command buffer.
 			void PushConstants(VkCommandBuffer cmdBuffer, VkShaderStageFlagBits shaderFlags, uint32_t byteSize, const void* pValues) {
 				vkCmdPushConstants(cmdBuffer, renderContext.graphicsPipeline.GetPipelineLayout(), VK_SHADER_STAGE_VERTEX_BIT, 0, byteSize, pValues);
 			}
 
-			/// <summary>Records Push Descriptors to the command buffer.</summary>
+			/// @brief Records Push Descriptors to the command buffer.
 			VkResult PushDescriptorSet(VkCommandBuffer cmdBuffer, std::vector<VkWriteDescriptorSet> writeDescriptorSets) {
 				return vkCmdPushDescriptorSetEKHR(renderContext.vkdevice.GetInstance(), cmdBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, renderContext.graphicsPipeline.GetPipelineLayout(),
 					0, static_cast<uint32_t>(writeDescriptorSets.size()), writeDescriptorSets.data());
 			}
             
-            /// <summary>Begins recording render commands to the provided command buffer.</summary>
+            #pragma endregion
+			#pragma region RENDERING_COMMAND_RECORDING
+			
+			/// @brief Begins recording render commands to the provided command buffer.
 			void BeginRecordCmdBuffer(VkCommandBuffer commandBuffer, std::vector<TinyVkImage*> syncImages = {}, std::vector<TinyVkBuffer*> syncBuffers = {}, const VkClearValue clearColor = { 0.0f, 0.0f, 0.0f, 1.0f }, const VkClearValue depthStencil = { .depthStencil = { 1.0f, 0 } }) {
 				VkCommandBufferBeginInfo beginInfo{};
 				beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
@@ -138,7 +146,7 @@
 				vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, renderContext.graphicsPipeline.GetGraphicsPipeline());
 			}
 
-			/// <summary>Ends recording render commands to the provided command buffer.</summary>
+			/// @brief Ends recording render commands to the provided command buffer.
 			void EndRecordCmdBuffer(VkCommandBuffer commandBuffer, std::vector<TinyVkImage*> syncImages = {}, std::vector<TinyVkBuffer*> syncBuffers = {}, const VkClearValue clearColor = { 0.0f, 0.0f, 0.0f, 1.0f }, const VkClearValue depthStencil = { .depthStencil = { 1.0f, 0 } }) {
 				if (vkCmdEndRenderingEKHR(renderContext.vkdevice.GetInstance(), commandBuffer) != VK_SUCCESS)
 					throw TinyVkRuntimeError("TinyVulkan: Failed to record [end] to rendering!");
@@ -156,7 +164,10 @@
 					throw TinyVkRuntimeError("TinyVulkan: Failed to record [end] to command buffer!");
 			}
 			
-			/// <summary>Executes the registered onRenderEvents and renders them to the target image/texture.</summary>
+			#pragma endregion
+			#pragma region RENDERING_SUBMISSION_AND_EXECUTION
+
+			/// @brief Executes the registered onRenderEvents and renders them to the target image/texture.
 			virtual VkResult RenderExecute(bool waitFences = true) {
 				if (renderTarget == VK_NULL_HANDLE)
                     throw TinyVkRuntimeError("TinyVulkan: RenderTarget for TinyVkImageRenderer is [VK_NULL_HANDLE]!");
@@ -210,7 +221,7 @@
 				return result;
 			}
 
-			/// <summary>Acquires the target's mutex lock and executes the registered onRenderEvents and renders them to the target image/texture.</summary>
+			/// @brief Acquires the target's mutex lock and executes the registered onRenderEvents and renders them to the target image/texture.
 			VkResult RenderExecuteThreadSafe() {
 				timed_guard imageLock(renderTarget->image_lock);
 				if (!imageLock.Acquired()) {
@@ -219,6 +230,8 @@
 				}
 				return RenderExecute();
 			}
+
+			#pragma endregion
         };
     }
 #endif

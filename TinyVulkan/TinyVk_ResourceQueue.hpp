@@ -14,7 +14,7 @@
 				callback<T&> : destructor callback for disposing of resource objects.
 		*/
 		
-		/// <summary>A ring-queue of resources which accepts an index/destructor function.</summary>
+		/// @brief A ring-queue of resources which accepts an index/destructor function.
 		template<class T, size_t S>
 		class TinyVkResourceQueue : public TinyVkDisposable {
 		public:
@@ -23,14 +23,14 @@
 			TinyVkCallback<T&> destructorCallback;
 			~TinyVkResourceQueue() { this->Dispose(); }
 
-			/// <summary>Creates a resource queue which returns an instance of type T at an frame index I for swapchain rendering.</summary>
+			/// @brief Creates a resource queue which returns an instance of type T at an frame index I for swapchain rendering.
 			TinyVkResourceQueue(std::array<T, S> resources, TinyVkCallback<size_t&> indexCallback, TinyVkCallback<T&> destructor)
 			: resourceQueue(resources), indexCallback(indexCallback), destructorCallback(destructor) {}
 
-			/// <summary>Get a resource by manual index lookup.</summary>
+			/// @brief Get a resource by manual index lookup.
 			T& GetResourceByIndex(size_t index) { return resourceQueue[index]; }
 
-			/// <summary>Get a resource by frame-index using the indexer callback.</summary>
+			/// @brief Get a resource by frame-index using the indexer callback.
 			T& GetFrameResource() {
 				size_t index = 0;
 				indexCallback.invoke(index);

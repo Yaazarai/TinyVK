@@ -82,14 +82,14 @@
 
 		#pragma endregion
 
-		/// <summary>List of valid Buffering Mode sizes.</summary>
+		/// @brief List of valid Buffering Mode sizes.
 		enum class TinyVkBufferingMode {
 			DOUBLE = 2,
 			TRIPLE = 3,
 			QUADRUPLE = 4
 		};
 
-		/// <summary>Description of the SwapChain Rendering format.</summary>
+		/// @brief Description of the SwapChain Rendering format.
 		struct TinyVkSwapChainSupporter {
 		public:
 			VkSurfaceCapabilitiesKHR capabilities = {};
@@ -97,7 +97,7 @@
 			std::vector<VkPresentModeKHR> presentModes = {};
 		};
 
-		/// <summary>Description of the Rendering Surface format.</summary>
+		/// @brief Description of the Rendering Surface format.
 		struct TinyVkSurfaceSupporter {
 		public:
 			VkFormat dataFormat = VK_FORMAT_B8G8R8A8_UNORM;
@@ -107,28 +107,28 @@
 
 		class TinyVkRendererInterface {
 		public:
-			/// <summary>Alias call for easy-calls to: vkCmdBindVertexBuffers + vkCmdBindIndexBuffer.</summary>
+			/// @brief Alias call for easy-calls to: vkCmdBindVertexBuffers + vkCmdBindIndexBuffer.
 			inline static void CmdBindGeometry(VkCommandBuffer cmdBuffer, const VkBuffer* vertexBuffers, const VkBuffer indexBuffer, const VkDeviceSize* offsets, const VkDeviceSize indexOffset = 0, uint32_t binding = 0, uint32_t bindingCount = 1) {
 				vkCmdBindVertexBuffers(cmdBuffer, binding, bindingCount, vertexBuffers, offsets);
 				vkCmdBindIndexBuffer(cmdBuffer, indexBuffer, indexOffset, VK_INDEX_TYPE_UINT32);
 			}
 
-			/// <summary>Alias call for: vkCmdBindVertexBuffers.</summary>
+			/// @brief Alias call for: vkCmdBindVertexBuffers.
 			inline static void CmdBindGeometry(VkCommandBuffer cmdBuffer, const VkBuffer* vertexBuffers, const VkDeviceSize* offsets, uint32_t binding = 0, uint32_t bindingCount = 1) {
 				vkCmdBindVertexBuffers(cmdBuffer, binding, bindingCount, vertexBuffers, offsets);
 			}
 
-			/// <summary>Alias call for: vkCmdBindIndexBuffers.</summary>
+			/// @brief Alias call for: vkCmdBindIndexBuffers.
 			inline static void CmdBindGeometry(VkCommandBuffer cmdBuffer, const VkBuffer indexBuffer, const VkDeviceSize indexOffset = 0, uint32_t binding = 0, uint32_t bindingCount = 1) {
 				vkCmdBindIndexBuffer(cmdBuffer, indexBuffer, indexOffset, VK_INDEX_TYPE_UINT32);
 			}
 
-			/// <summary>Alias call for: vkCmdBindVertexBuffers2.</summary>
+			/// @brief Alias call for: vkCmdBindVertexBuffers2.
 			inline static void CmdBindGeometry(VkCommandBuffer cmdBuffer, uint32_t firstBinding, uint32_t bindingCount, const VkBuffer* vertexBuffers, const VkDeviceSize* vbufferOffsets, const VkDeviceSize* vbufferSizes, const VkDeviceSize* vbufferStrides = VK_NULL_HANDLE) {
 				vkCmdBindVertexBuffers2(cmdBuffer, firstBinding, bindingCount, vertexBuffers, vbufferOffsets, vbufferSizes, vbufferStrides);
 			}
 
-			/// <summary>Alias call for vkCmdDraw (isIndexed = false) and vkCmdDrawIndexed (isIndexed = true).</summary>
+			/// @brief Alias call for vkCmdDraw (isIndexed = false) and vkCmdDrawIndexed (isIndexed = true).
 			inline static void CmdDrawGeometry(VkCommandBuffer cmdBuffer, bool isIndexed = false, uint32_t instanceCount = 1, uint32_t firstInstance = 0, uint32_t vertexCount = 0, uint32_t vertexOffset = 0, uint32_t firstIndex = 0) {
 				switch (isIndexed) {
 					case true:
@@ -140,12 +140,12 @@
 				}
 			}
 
-			/// <summary>Alias call for: vkCmdDrawIndexedIndirect.</summary>
+			/// @brief Alias call for: vkCmdDrawIndexedIndirect.
 			inline static void CmdDrawGeometryIndirect(VkCommandBuffer cmdBuffer, const VkBuffer drawParamBuffer, VkDeviceSize offset, uint32_t drawCount, uint32_t stride) {
 				vkCmdDrawIndexedIndirect(cmdBuffer, drawParamBuffer, offset, drawCount, stride);
 			}
 
-			/// <summary>Alias call for: vkCmdDrawIndexedIndirectCount.</summary>
+			/// @brief Alias call for: vkCmdDrawIndexedIndirectCount.
 			inline static void CmdDrawGeometryIndirect(VkCommandBuffer cmdBuffer, const VkBuffer drawParamBuffer, VkDeviceSize offset, const VkBuffer countBuffer, VkDeviceSize countBufferOffset, uint32_t drawCount, uint32_t maxDrawCount, uint32_t stride) {
 				vkCmdDrawIndexedIndirectCount(cmdBuffer, drawParamBuffer, offset, countBuffer, countBufferOffset, maxDrawCount, stride);
 			}

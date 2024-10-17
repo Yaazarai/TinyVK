@@ -174,40 +174,40 @@ swapRenderer.RenderExecute();
 
 The `TinyVkGraphicsRenderer` and `TinyVkSwapchainRenderer` implement the same supporting backend interface `TinyVkRendererInterface` providing the following render functions:
 ```
-/// <summary>Begins recording render commands to the provided command buffer.</summary>
+/// @brief Begins recording render commands to the provided command buffer.
 BeginRecordCmdBuffer(const VkClearValue clearColor, const VkClearValue depthStencil, VkCommandBuffer commandBuffer)
 
-/// <summary>Ends recording render commands to the provided command buffer.</summary>
+/// @brief Ends recording render commands to the provided command buffer.
 EndRecordCmdBuffer(const VkClearValue clearColor, const VkClearValue depthStencil, VkCommandBuffer commandBuffer)
 
-/// <summary>Alias call for easy-calls to: vkCmdBindVertexBuffers + vkCmdBindIndexBuffer.</summary>
+/// @brief Alias call for easy-calls to: vkCmdBindVertexBuffers + vkCmdBindIndexBuffer.
 CmdBindGeometry(VkCommandBuffer cmdBuffer, const VkBuffer* vertexBuffers, const VkBuffer indexBuffer, const VkDeviceSize* offsets, const VkDeviceSize indexOffset = 0, uint32_t binding = 0, uint32_t bindingCount = 1)
 
-/// <summary>Records Push Descriptors to the command buffer.</summary>
+/// @brief Records Push Descriptors to the command buffer.
 VkResult PushDescriptorSet(VkCommandBuffer cmdBuffer, std::vector<VkWriteDescriptorSet> writeDescriptorSets)
 
-/// <summary>Records Push Constants to the command buffer.</summary>
+/// @brief Records Push Constants to the command buffer.
 PushConstants(VkCommandBuffer cmdBuffer, VkShaderStageFlagBits shaderFlags, uint32_t byteSize, const void* pValues)
 
-/// <summary>Executes the registered onRenderEvents and renders them to the target image/texture.</summary>
+/// @brief Executes the registered onRenderEvents and renders them to the target image/texture.
 RenderExecute(VkCommandBuffer preRecordedCmdBuffer = VK_NULL_HANDLE /*ONly for TinyVkGraphicsRenderer*/)
 
-/// <summary>Alias call for: vkCmdBindVertexBuffers.</summary>
+/// @brief Alias call for: vkCmdBindVertexBuffers.
 CmdBindGeometry(VkCommandBuffer cmdBuffer, const VkBuffer* vertexBuffers, const VkDeviceSize* offsets, uint32_t binding = 0, uint32_t bindingCount = 1)
 
-/// <summary>Alias call for: vkCmdBindIndexBuffers.</summary>
+/// @brief Alias call for: vkCmdBindIndexBuffers.
 CmdBindGeometry(VkCommandBuffer cmdBuffer, const VkBuffer indexBuffer, const VkDeviceSize indexOffset = 0, uint32_t binding = 0, uint32_t bindingCount = 1)
 
-/// <summary>Alias call for: vkCmdBindVertexBuffers2.</summary>
+/// @brief Alias call for: vkCmdBindVertexBuffers2.
 CmdBindGeometry(VkCommandBuffer cmdBuffer, uint32_t firstBinding, uint32_t bindingCount, const VkBuffer* vertexBuffers, const VkDeviceSize* vbufferOffsets, const VkDeviceSize* vbufferSizes, const VkDeviceSize* vbufferStrides = VK_NULL_HANDLE)
 
-/// <summary>Alias call for vkCmdDraw (isIndexed = false) and vkCmdDrawIndexed (isIndexed = true).</summary>
+/// @brief Alias call for vkCmdDraw (isIndexed = false) and vkCmdDrawIndexed (isIndexed = true).
 CmdDrawGeometry(VkCommandBuffer cmdBuffer, bool isIndexed = false, uint32_t instanceCount = 1, uint32_t firstInstance = 0, uint32_t vertexCount = 0, uint32_t vertexOffset = 0, uint32_t firstIndex = 0)
 
-/// <summary>Alias call for: vkCmdDrawIndexedIndirect.</summary>
+/// @brief Alias call for: vkCmdDrawIndexedIndirect.
 CmdDrawGeometryIndirect(VkCommandBuffer cmdBuffer, const VkBuffer drawParamBuffer, VkDeviceSize offset, uint32_t drawCount, uint32_t stride)
 
-/// <summary>Alias call for: vkCmdDrawIndexedIndirectCount.</summary>
+/// @brief Alias call for: vkCmdDrawIndexedIndirectCount.
 CmdDrawGeometryIndirect(VkCommandBuffer cmdBuffer, const VkBuffer drawParamBuffer, VkDeviceSize offset, const VkBuffer countBuffer, VkDeviceSize countBufferOffset, uint32_t drawCount, uint32_t maxDrawCount, uint32_t stride)
 ```
 

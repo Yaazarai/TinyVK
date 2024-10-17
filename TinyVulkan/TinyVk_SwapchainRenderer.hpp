@@ -26,7 +26,7 @@
 		/// be optionally created and utilized if their underlying graphics pipeline supports depth testing.
 		/// 
 		
-		/// <summary>Onscreen Rendering (Render/Present-To-Screen Model): Render to SwapChain.</summary>
+		/// @brief Onscreen Rendering (Render/Present-To-Screen Model): Render to SwapChain.
 		class TinyVkSwapchainRenderer : public TinyVkDisposable, public TinyVkGraphicsRenderer {
 		private:
 			std::timed_mutex swapChainMutex;
@@ -48,7 +48,9 @@
 			uint32_t currentSwapFrame = 0; // Current SwapChain Image Frame (Out of Order).
 			std::atomic_bool presentable, refreshable;
 
-			/// <summary>Create the Vulkan surface swap-chain images and imageviews.</summary>
+			#pragma region SWAPCHAIN_CREATION_AND_RECREATION
+			
+			/// @brief Create the Vulkan surface swap-chain images and imageviews.
 			void CreateSwapChainImages(uint32_t width = 0, uint32_t height = 0) {
 				TinyVkSwapChainSupporter swapChainSupport = QuerySwapChainSupport(renderContext.vkdevice.GetPhysicalDevice());
 				VkSurfaceFormatKHR surfaceFormat = QuerySwapSurfaceFormat(swapChainSupport.formats);
@@ -117,7 +119,7 @@
 				imageExtent = extent;
 			}
 
-			/// <summary>Create the image views for rendering to images (including those in the swap-chain).</summary>
+			/// @brief Create the image views for rendering to images (including those in the swap-chain).
 			void CreateSwapChainImageViews(VkImageViewCreateInfo* createInfoEx = VK_NULL_HANDLE) {
 				for (size_t i = 0; i < imageSources.size(); i++) {
 					VkImageViewCreateInfo createInfo{};
@@ -145,13 +147,13 @@
 				}
 			}
 
-			/// <summary>Create the Vulkan surface swapchain.</summary>
+			/// @brief Create the Vulkan surface swapchain.
 			void CreateSwapChain(uint32_t width = 0, uint32_t height = 0) {
 				CreateSwapChainImages(width, height);
 				CreateSwapChainImageViews();
 			}
 
-			/// <summary>Creates the synchronization semaphores/fences for swapchain multi-frame buffering.</summary>
+			/// @brief Creates the synchronization semaphores/fences for swapchain multi-frame buffering.
 			void CreateImageSyncObjects() {
 				size_t count = static_cast<size_t>(bufferingMode);
 				imageAvailable.resize(count);
@@ -177,7 +179,10 @@
 				}
 			}
 
-			/// <summary>Checks the VkPhysicalDevice for swap-chain availability.</summary>
+			#pragma endregion
+			#pragma region SWAPCHAIN_PROPERTY_QUERYING
+			
+			/// @brief Checks the VkPhysicalDevice for swap-chain availability.
 			TinyVkSwapChainSupporter QuerySwapChainSupport(VkPhysicalDevice device) {
 				TinyVkSwapChainSupporter details;
 
@@ -202,7 +207,7 @@
 				return details;
 			}
 
-			/// <summary>Gets the swap-chain surface format.</summary>
+			/// @brief Gets the swap-chain surface format.
 			VkSurfaceFormatKHR QuerySwapSurfaceFormat(const std::vector<VkSurfaceFormatKHR>& availableFormats) {
 				for (const auto& availableFormat : availableFormats)
 					if (availableFormat.format == presentDetails.dataFormat && availableFormat.colorSpace == presentDetails.colorSpace)
@@ -211,7 +216,7 @@
 				return availableFormats[0];
 			}
 
-			/// <summary>Select the swap-chains active present mode.</summary>
+			/// @brief Select the swap-chains active present mode.
 			VkPresentModeKHR QuerySwapPresentMode(const std::vector<VkPresentModeKHR>& availablePresentModes) {
 				for (const auto& availablePresentMode : availablePresentModes)
 					if (availablePresentMode == presentDetails.idealPresentMode)
@@ -220,7 +225,7 @@
 				return VK_PRESENT_MODE_FIFO_KHR;
 			}
 
-			/// <summary>Select swap-chain extent (swap-chain surface resolution).</summary>
+			/// @brief Select swap-chain extent (swap-chain surface resolution).
 			VkExtent2D QuerySwapExtent(const VkSurfaceCapabilitiesKHR& capabilities) {
 				int width, height;
 				window.OnFrameBufferReSizeCallback(width, height);
@@ -235,7 +240,10 @@
 				return extent;
 			}
 
-			/// <summary>Acquires the next image from the swap chain and returns out that image index.</summary>
+			#pragma endregion
+			#pragma region RENDER_SUBMISSION_AND_EXECUTION
+			
+			/// @brief Acquires the next image from the swap chain and returns out that image index.
 			VkResult QueryNextImage() {
 				vkWaitForFences(renderContext.vkdevice.GetLogicalDevice(), 1, &imageInFlight[currentSyncFrame], VK_TRUE, UINT64_MAX);
 				vkResetFences(renderContext.vkdevice.GetLogicalDevice(), 1, &imageInFlight[currentSyncFrame]);
@@ -260,7 +268,7 @@
 			}
 
 			VkResult RenderSwapChain() {
-				if (refreshable) { OnFrameBufferResizeCallbackNoLock(window.GetHandle(), window.GetWidth(), window.GetHeight()); return VK_SUBOPTIMAL_KHR; }
+				if (refreshable) { OnFrameBufferResizeCallbackNoLock(window.hwndWindow, window.hwndWidth, window.hwndHeight); return VK_SUBOPTIMAL_KHR; }
 				if (!presentable) return VK_ERROR_OUT_OF_DATE_KHR;
 				
 				VkResult result = QueryNextImage();
@@ -287,6 +295,8 @@
 				
 				return result;
 			}
+
+			#pragma endregion
 		public:
 			TinyVkWindow& window;
 
@@ -325,13 +335,13 @@
 				vkDestroySwapchainKHR(renderContext.vkdevice.GetLogicalDevice(), swapChain, VK_NULL_HANDLE);
 			}
 
-			/// <summary>Creates a renderer specifically for performing render commands on a TinyVkSwapChain (VkSwapChain) to present to the window.</summary>
+			/// @brief Creates a renderer specifically for performing render commands on a TinyVkSwapChain (VkSwapChain) to present to the window.
 			TinyVkSwapchainRenderer(TinyVkRenderContext& renderContext, TinyVkWindow& window, const TinyVkBufferingMode bufferingMode, size_t cmdpoolbuffercount = TinyVkCommandPool::GetDefaultPoolSize(), TinyVkSurfaceSupporter presentDetails = TinyVkSurfaceSupporter(), VkImageUsageFlags imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT)
 				: window(window), bufferingMode(bufferingMode), presentDetails(presentDetails), imageUsage(imageUsage), presentable(true), TinyVkGraphicsRenderer(renderContext, VK_NULL_HANDLE, VK_NULL_HANDLE, VK_NULL_HANDLE) {
 				onDispose.hook(TinyVkCallback<bool>([this](bool forceDispose) {this->Disposable(forceDispose); }));
 				onResizeFrameBuffer.hook(TinyVkCallback<int, int>([this](int, int){ this->RenderSwapChain(); }));
 				window.onResizeFrameBuffer.hook(TinyVkCallback<GLFWwindow*, int, int>([this](GLFWwindow* w, int x, int y) { this->OnFrameBufferResizeCallback(w, x, y); }));
-				imageExtent = (VkExtent2D) { static_cast<uint32_t>(window.GetWidth()), static_cast<uint32_t>(window.GetHeight()) };
+				imageExtent = (VkExtent2D) { static_cast<uint32_t>(window.hwndWidth), static_cast<uint32_t>(window.hwndHeight) };
 
 				for(size_t i = 0; i < static_cast<size_t>(bufferingMode); i++)
 					imageCmdPools.push_back(new TinyVkCommandPool(renderContext.vkdevice, false, cmdpoolbuffercount));
@@ -344,9 +354,11 @@
 				CreateImageSyncObjects();
 			}
 
-			/// <summary>Notify the render engine that the window's frame buffer needs to be refreshed (without thread locking).</summary>
+			#pragma region SWAPCHAIN_RESIZE_CALLBACKS
+			
+			/// @brief Notify the render engine that the window's frame buffer needs to be refreshed (without thread locking).
 			void OnFrameBufferResizeCallbackNoLock(GLFWwindow* hwndWindow, int width, int height) {
-				if (hwndWindow != window.GetHandle()) return;
+				if (hwndWindow != window.hwndWindow) return;
 
 				if (width > 0 && height > 0) {
 					renderContext.vkdevice.DeviceWaitIdle();
@@ -367,23 +379,29 @@
 				}
 			}
 			
-			/// <summary>Notify the render engine that the window's frame buffer needs to be refreshed (with thread locking).</summary>
+			/// @brief Notify the render engine that the window's frame buffer needs to be refreshed (with thread locking).
 			void OnFrameBufferResizeCallback(GLFWwindow* hwndWindow, int width, int height) {
 				timed_guard<true> swapChainLock(swapChainMutex);
 				if (!swapChainLock.Acquired()) return;
 				OnFrameBufferResizeCallbackNoLock(hwndWindow, width, height);
 			}
 
-			/// <summary>Returns the current resource synchronized frame index.</summary>
+			#pragma endregion
+			#pragma region REFERENCE_GETTERS
+			
+			/// @brief Returns the current resource synchronized frame index.
 			uint32_t GetSyncronizedFrameIndex() { return currentSyncFrame; }
 			
-			/// <summary>Returns reference to presentable atomic_bool (whether swapchain is presentable or not).</summary>
+			/// @brief Returns reference to presentable atomic_bool (whether swapchain is presentable or not).
 			std::atomic_bool& GetPresentableBool() { return presentable; }
 			
-			/// <summary>Returns reference to presentable atomic_bool (whether swapchain is NOT presentable and needs a refresh).</summary>
+			/// @brief Returns reference to presentable atomic_bool (whether swapchain is NOT presentable and needs a refresh).
 			std::atomic_bool& GetRefreshableBool() { return refreshable; }
+
+			#pragma endregion
+			#pragma region RENDER_SUBMISSION_AND_EXECUTION
 			
-			/// <summary>Returns the current resource synchronized frame index.</summary>
+			/// @brief Returns the current resource synchronized frame index.
 			void PushPresentMode(VkPresentModeKHR presentMode) {
 				if (presentMode != presentDetails.idealPresentMode) {
 					presentDetails = { presentDetails.dataFormat, presentDetails.colorSpace, presentMode };
@@ -391,12 +409,14 @@
 				}
 			}
 
-			/// <summary>Executes the registered onRenderEvents and presents them to the SwapChain(Window).</summary>
+			/// @brief Executes the registered onRenderEvents and presents them to the SwapChain(Window).
 			VkResult RenderExecute(bool waitFences = true) override {
 				timed_guard swapChainLock(swapChainMutex);
 				if (!swapChainLock.Acquired()) return VK_ERROR_OUT_OF_DATE_KHR;
 				return RenderSwapChain();
 			}
+
+			#pragma endregion
 		};
 	}
 #endif

@@ -4,7 +4,7 @@
     #include "./TinyVulkan.hpp"
 
     namespace TINYVULKAN_NAMESPACE {
-        /// <summary>Default TinyVk shader vertex layout provided (optional).</summary>
+        /// @brief Default TinyVk shader vertex layout provided (optional).
         struct TinyVkVertex {
             glm::vec2 texcoord;
             glm::vec3 position;
@@ -44,7 +44,7 @@
             }
         };
 
-        /// <summary>Default math coordinate and 2D camera projection functionality.</summary>
+        /// @brief Default math coordinate and 2D camera projection functionality.
         class TinyVkMath {
 	    public:
             const static glm::mat4 Project2D(double width, double height, double camerax, double cameray, double znear = 1.0, double zfar = 0.0) {
@@ -110,7 +110,7 @@
 			static size_t GetSizeofArray(std::array<T,S> array) { return S * sizeof(T); }
         };
 
-        /// <summary>Creates non-indexed quads in the format of std::vector of TinyVkVertex.</summary>
+        /// @brief Creates non-indexed quads in the format of std::vector of TinyVkVertex.
         class TinyVkQuad {
         public:
             static const std::vector<glm::vec4> defvcolors;
@@ -189,7 +189,7 @@
             }
         };
 
-        /// <summary>Default (white) color layout for generating quads.</summary>
+        /// @brief Default (white) color layout for generating quads.
         const std::vector<glm::vec4> TinyVkQuad::defvcolors = { {1.0,1.0,1.0,1.0},{1.0,1.0,1.0,1.0},{1.0,1.0,1.0,1.0},{1.0,1.0,1.0,1.0} };
     }
 #endif`

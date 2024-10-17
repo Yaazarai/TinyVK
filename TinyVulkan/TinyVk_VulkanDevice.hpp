@@ -25,7 +25,7 @@
 			VkPhysicalDeviceFeatures vkfeatures;
 		};
 
-		/// <summary>Vulkan Instance & Render(Physical/Logical) Device & VMAllocator Loader.</summary>
+		/// @brief Vulkan Instance & Render(Physical/Logical) Device & VMAllocator Loader.
 		class TinyVkVulkanDevice : public TinyVkDisposable {
 		private:
 			std::vector<const char*> validationLayers = { VK_VALIDATION_LAYER_KHRONOS_EXTENSION_NAME };
@@ -34,6 +34,7 @@
 
 			const std::vector<VkPhysicalDeviceType> deviceTypes;
 			VkPhysicalDeviceFeatures deviceFeatures {};
+			const bool useComputeBit;
 
 			VkApplicationInfo appInfo{};
 			VkInstance instance = VK_NULL_HANDLE;
@@ -44,7 +45,7 @@
 			VkSurfaceKHR presentSurface = VK_NULL_HANDLE;
 			VmaAllocator memoryAllocator = VK_NULL_HANDLE;
 
-			/// <summary>Creates the underlying Vulkan Instance w/ Required Extensions.</summary>
+			/// @brief Creates the underlying Vulkan Instance w/ Required Extensions.
 			void CreateVkInstance(const std::string& title, TinyVkWindow* window = VK_NULL_HANDLE) {
 				VkApplicationInfo appInfo {};
 				appInfo.sType = VK_STRUCTURE_TYPE_APPLICATION_INFO;
@@ -97,12 +98,12 @@
 					if (result != VK_SUCCESS)
 						throw TinyVkRuntimeError("TinyVulkan: Failed to set up debug messenger! " + result);
 
-					std::cout << "TinyVulkan: " << instanceExtensions.size() << " extensions supported." << std::endl;
+					std::cout << "TinyVulkan: " << instanceExtensions.size() << " instance extensions supported." << std::endl;
 					for (const auto& extension : instanceExtensions) std::cout << '\t' << extension << std::endl;
 				#endif
 			}
 			
-			/// <summary>Returns an VkDeviceSize ranking of VK_PHYSICAL_DEVICE_TYPE for a VkPhysicalDevice ranked by memory heap size.</summary>
+			/// @brief Returns an VkDeviceSize ranking of VK_PHYSICAL_DEVICE_TYPE for a VkPhysicalDevice ranked by memory heap size.
 			VkDeviceSize QueryPhysicalDeviceRank(VkPhysicalDevice device) {
 				VkPhysicalDeviceProperties2 properties {};
 				properties.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2;
@@ -128,7 +129,7 @@
 				return 0;
 			}
 
-			/// <summary>Returns the first usable GPU.</summary>
+			/// @brief Returns the first usable GPU.
 			void QueryPhysicalDevice() {
 				std::vector<VkPhysicalDevice> suitableDevices = QuerySuitableDevices();
 				std::sort(suitableDevices.begin(), suitableDevices.end(), [this](VkPhysicalDevice A, VkPhysicalDevice B) {
@@ -162,7 +163,7 @@
 				#endif
 			}
 			
-			/// <summary>Creates the logical devices for the graphics/present queue families.</summary>
+			/// @brief Creates the logical devices for the graphics/present queue families.
 			void CreateLogicalDevice() {
 				TinyVkQueueFamily indices = FindQueueFamilies();
 				std::vector<VkDeviceQueueCreateInfo> queueCreateInfos;
@@ -210,9 +211,14 @@
 
 				if (vkCreateDevice(physicalDevice, &createInfo, VK_NULL_HANDLE, &logicalDevice) != VK_SUCCESS)
 					throw TinyVkRuntimeError("TinyVulkan: Failed to create logical device! Missing extension or queue family!");
+
+				#if TVK_VALIDATION_LAYERS
+					std::cout << "TinyVulkan: " << deviceExtensions.size() << " device extensions supported." << std::endl;
+					for (const auto& extension : deviceExtensions) std::cout << '\t' << extension << std::endl;
+				#endif
 			}
 			
-			/// <summary>Creates the VMAllocator for AMD's GPU memory handling API.</summary>
+			/// @brief Creates the VMAllocator for AMD's GPU memory handling API.
 			void CreateVMAllocator() {
 				VmaAllocatorCreateInfo allocatorCreateInfo {};
 				allocatorCreateInfo.vulkanApiVersion = TVK_RENDERER_VERSION;
@@ -223,7 +229,6 @@
 			}
 			
 		public:
-			const bool useComputeBit;
 
 			TinyVkVulkanDevice operator=(const TinyVkVulkanDevice&) = delete;
 
@@ -272,11 +277,12 @@
 			VmaAllocator GetAllocator() { return memoryAllocator; }
 			VkApplicationInfo GetAppInfo() { return appInfo; }
 			const std::vector<const char*> GetDeviceExtensions() { return deviceExtensions; }
+			const bool IsComputeCompatible() { return useComputeBit; }
 
 			#pragma endregion
 			#pragma region VULKAN_VALIDATION_LAYERS
 			
-			/// <summary>Queries device drivers for installed Validation Layers.</summary>
+			/// @brief Queries device drivers for installed Validation Layers.
 			bool QueryValidationLayerSupport() {
 				uint32_t layersFound = 0, layersCount = 0;
 				vkEnumerateInstanceLayerProperties(&layersCount, VK_NULL_HANDLE);
@@ -301,10 +307,10 @@
 			#pragma endregion
 			#pragma region VULKAN_GPU_DEVICE
 
-			/// <summary>Wait for GPU device to finish transfer/render commands.</summary>
+			/// @brief Wait for GPU device to finish transfer/render commands.
 			inline VkResult DeviceWaitIdle() { return vkDeviceWaitIdle(logicalDevice); }
 
-			/// <summary>Returns info about the VkPhysicalDevice graphics/present queue families. If no surface provided, auto checks for Win32 surface support.</summary>
+			/// @brief Returns info about the VkPhysicalDevice graphics/present queue families. If no surface provided, auto checks for Win32 surface support.
 			TinyVkQueueFamily FindQueueFamilies(VkPhysicalDevice newDevice = VK_NULL_HANDLE) {
 				VkPhysicalDevice device = (newDevice == VK_NULL_HANDLE)? physicalDevice : newDevice;
 
@@ -330,7 +336,7 @@
 				return indices;
 			}
 
-			/// <summary>Checks the VkPhysicalDevice for swap-chain availability.</summary>
+			/// @brief Checks the VkPhysicalDevice for swap-chain availability.
 			TinyVkSwapChainSupporter QuerySwapChainSupport(VkPhysicalDevice device) {
 				TinyVkSwapChainSupporter details;
 
@@ -347,7 +353,7 @@
 				return details;
 			}
 
-			/// <summary>Returns BOOL(true/false) if the VkPhysicalDevice (GPU/iGPU) supports extensions.</summary>
+			/// @brief Returns BOOL(true/false) if the VkPhysicalDevice (GPU/iGPU) supports extensions.
 			bool QueryDeviceExtensionSupport(VkPhysicalDevice device) {
 				uint32_t extensionCount;
 				vkEnumerateDeviceExtensionProperties(device, VK_NULL_HANDLE, &extensionCount, VK_NULL_HANDLE);
@@ -368,7 +374,7 @@
 				return requiredExtensions.empty();
 			}
 
-			/// <summary>Returns BOOL(true/false) if a physical device is compatible with the required vulkan renderer (with or wihtout present support).</summary>
+			/// @brief Returns BOOL(true/false) if a physical device is compatible with the required vulkan renderer (with or wihtout present support).
 			bool QueryDeviceCompatibility(VkPhysicalDevice device) {
 				VkPhysicalDeviceProperties2 deviceProperties {};
 				deviceProperties.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2;
@@ -400,7 +406,7 @@
 				return indices.hasGraphicsFamily && hasCompute && hasType && supportsExtensions && requiresPresent && hasFeatures;
 			}
 
-			/// <summary>Returns a Vector of suitable VkPhysicalDevices (GPU/iGPU).</summary>
+			/// @brief Returns a Vector of suitable VkPhysicalDevices (GPU/iGPU).
 			std::vector<VkPhysicalDevice> QuerySuitableDevices() {
 				uint32_t deviceCount = 0;
 				vkEnumeratePhysicalDevices(instance, &deviceCount, VK_NULL_HANDLE);

@@ -5,6 +5,7 @@
     #include "./TinyVulkan.hpp"
 
     namespace TINYVULKAN_NAMESPACE {
+        /// @brief Graphics pipeline render context for the Image and Swapchain renderers.
         class TinyVkRenderContext : public TinyVkRendererInterface {
         public:
             tinyvk::TinyVkVulkanDevice& vkdevice;

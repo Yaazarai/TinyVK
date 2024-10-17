@@ -4,7 +4,7 @@
 	#include "./TinyVulkan.hpp"
 
 	namespace TINYVULKAN_NAMESPACE {
-		/// <summary>GLFW Modifer Keys Bits.</summary>
+		/// @brief GLFW Modifer Keys Bits.
 		enum class TinyVkModKeyBits {
 			KEYMOD_NONE = 0,
 			KEYMOD_ALT = GLFW_MOD_ALT,
@@ -15,7 +15,7 @@
 			KEYMOD_SUPER = GLFW_MOD_SUPER
 		};
 		
-		/// <summary>GLFW Keyboard Key bits.</summary>
+		/// @brief GLFW Keyboard Key bits.
 		enum class TinyVkKeyboardButtons {
 			KEY_UNKNOWN = GLFW_KEY_UNKNOWN,
 			KEY_SPACE = GLFW_KEY_SPACE,
@@ -141,7 +141,7 @@
 			KEY_LAST = GLFW_KEY_LAST
 		};
 
-		/// <summary>GLFW Mouse Button Bits.</summary>
+		/// @brief GLFW Mouse Button Bits.
 		enum class TinyVkMouseButtons {
 			BUTTON_NUM1 = GLFW_MOUSE_BUTTON_1,
 			BUTTON_NUM2 = GLFW_MOUSE_BUTTON_2,
@@ -157,7 +157,7 @@
 			BUTTON_LAST = GLFW_MOUSE_BUTTON_LAST
 		};
 
-		/// <summary>GLFW Gamepad Button Bits.</summary>
+		/// @brief GLFW Gamepad Button Bits.
 		enum class TinyVkGamepadButtons {
 			BUTTON_A = GLFW_GAMEPAD_BUTTON_A,
 			BUTTON_B = GLFW_GAMEPAD_BUTTON_B,
@@ -181,7 +181,7 @@
 			BUTTON_TRIANGLE = GLFW_GAMEPAD_BUTTON_TRIANGLE
 		};
 
-		/// <summary>GLFW Gamepad Axis Bits.</summary>
+		/// @brief GLFW Gamepad Axis Bits.
 		enum class TinyVkGamepadAxis {
 			AXIS_LEFTX = GLFW_GAMEPAD_AXIS_LEFT_X,
 			AXIS_LEFTY = GLFW_GAMEPAD_AXIS_LEFT_Y,
@@ -192,7 +192,7 @@
 			AXIS_LAST = GLFW_GAMEPAD_AXIS_LAST
 		};
 
-		/// <summary>GLFW Gamepad ID Bits.</summary>
+		/// @brief GLFW Gamepad ID Bits.
 		enum class TinyVkGamepads {
 			GPAD_01 = GLFW_JOYSTICK_1,
 			GPAD_02 = GLFW_JOYSTICK_2,
@@ -213,7 +213,7 @@
 			GPAD_LAST = GLFW_JOYSTICK_LAST
 		};
 
-		/// <summary>GLFW Button Action (Press/Release) Bits.</summary>
+		/// @brief GLFW Button Action (Press/Release) Bits.
 		enum class TinyVkInputEvents {
 			RELEASE = GLFW_RELEASE,
 			PRESS = GLFW_PRESS,

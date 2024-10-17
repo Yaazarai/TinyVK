@@ -25,7 +25,7 @@
 					Finally for use in shaders you need to change the layout to VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL.
 		*/
 
-		///<summary>Specifies the [layout] in GPU memory of image and how it can be used..</summary>
+		/// @brief Specifies the [layout] in GPU memory of image and how it can be used..
 		enum TinyVkImageLayout {
 			TINYVK_TRANSFER_SRC = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
 			TINYVK_TRANSFER_DST = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
@@ -36,7 +36,7 @@
 			TINYVK_GENERAL = VK_IMAGE_LAYOUT_GENERAL,
 			TINYVK_PRESENT_SRC = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR
 		};
-		///<summary>Specifies the [type] of image that this TinyVkImage represents.</summary>
+		/// @brief Specifies the [type] of image that this TinyVkImage represents.
 		enum class TinyVkImageType {
 			TINYVK_IMAGE_TYPE_SWAPCHAIN,       /// For writing or presenting with Swapchain (screen).
 			TINYVK_IMAGE_TYPE_COLORATTACHMENT, /// For reading OR writing from/to VkImage via Fragment shaders.
@@ -44,7 +44,7 @@
 			TINYVK_IMAGE_TYPE_DEPTHSTENCIL     /// For reading/writing depth/stencil shader information.
 		};
 
-		/// <summary>GPU device image for sending images to the render (GPU) device.</summary>
+		/// @brief GPU device image for sending images to the render (GPU) device.
 		class TinyVkImage : public TinyVkDisposable {
 		private:
 			void CreateImageView() {
@@ -122,7 +122,7 @@
 			TinyVkRenderContext& renderContext;
 			const TinyVkImageType imageType;
 
-			/// <summary>Deleted copy constructor (dynamic objects are not copyable).</summary>
+			/// @brief Deleted copy constructor (dynamic objects are not copyable).
 			TinyVkImage operator=(const TinyVkImage& image) = delete;
 			
 			~TinyVkImage() { this->Dispose(); }
@@ -140,7 +140,7 @@
 				}
 			}
 
-			/// <summary>Creates a VkImage for rendering or loading image files (stagedata) into.</summary>
+			/// @brief Creates a VkImage for rendering or loading image files (stagedata) into.
 			TinyVkImage(TinyVkRenderContext& renderContext, TinyVkImageType type, VkDeviceSize width, VkDeviceSize height, VkImage imageSource = VK_NULL_HANDLE, VkImageView imageViewSource = VK_NULL_HANDLE, VkSampler imageSampler = VK_NULL_HANDLE, VkSemaphore imageAvailable = VK_NULL_HANDLE, VkSemaphore imageFinished = VK_NULL_HANDLE, VkFence imageWaitable = VK_NULL_HANDLE, VkFormat format = VK_FORMAT_B8G8R8A8_UNORM, VkSamplerAddressMode addressingMode = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE)
 			: renderContext(renderContext), imageType(type), width(width), height(height), image(imageSource), imageView(imageViewSource), imageSampler(imageSampler), imageAvailable(imageAvailable), imageFinished(imageFinished), imageWaitable(imageWaitable), format(format), imageLayout(TinyVkImageLayout::TINYVK_UNDEFINED), addressingMode(addressingMode), aspectFlags(aspectFlags) {
 				onDispose.hook(TinyVkCallback<bool>([this](bool forceDispose) {this->Disposable(forceDispose); }));
@@ -155,7 +155,9 @@
 				}
 			}
 
-			/// <summary>Recreates this TinyVkImage using a new layout/format (don't forget to call image.Disposable(bool waitIdle) to dispose of the previous image first.</summary>
+			#pragma region IMAGE_INITIATION_AND_SYNCHRONIZATION
+
+			/// @brief Recreates this TinyVkImage using a new layout/format (don't forget to call image.Disposable(bool waitIdle) to dispose of the previous image first.
 			void ReCreateImage(TinyVkImageType type, VkDeviceSize width, VkDeviceSize height, VkFormat format = VK_FORMAT_R16G16B16A16_UNORM, VkSamplerAddressMode addressingMode = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE) {
 				if (type == TinyVkImageType::TINYVK_IMAGE_TYPE_SWAPCHAIN)
 					throw TinyVkRuntimeError("TinyVulkan: Tried to manually re-create swapchain allocated image!");
@@ -208,7 +210,7 @@
 					TransitionLayoutCmd(newLayout);
 			}
 			
-			/// <summary>Get pipeline stages relative to the current image layout and command buffer recording stage.</summary>
+			/// @brief Get pipeline stages relative to the current image layout and command buffer recording stage.
 			void GetPipelineBarrierStages(TinyVkImageLayout layout, TinyVkCmdBufferSubmitStage cmdBufferStage, VkPipelineStageFlags& srcStage, VkPipelineStageFlags& dstStage, VkAccessFlags& srcAccessMask, VkAccessFlags& dstAccessMask) {
 				if (cmdBufferStage == TinyVkCmdBufferSubmitStage::TINYVK_BEGIN) {
 					switch (layout) {
@@ -326,7 +328,7 @@
 				}
 			}
 					
-			/// <summary>Get the pipeline barrier info for resource synchronization in image pipeline barrier pNext chain.</summary>
+			/// @brief Get the pipeline barrier info for resource synchronization in image pipeline barrier pNext chain.
 			VkImageMemoryBarrier GetPipelineBarrier(TinyVkImageLayout newLayout, TinyVkCmdBufferSubmitStage cmdBufferStage, VkPipelineStageFlags& srcStage, VkPipelineStageFlags& dstStage) {
 				VkImageMemoryBarrier pipelineBarrier = {
 					.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
@@ -349,7 +351,10 @@
 				return pipelineBarrier;
 			}
 			
-			/// <summary>Begins a transfer command and returns the command buffer index pair used for the command allocated from a TinyVkCommandPool.</summary>
+			#pragma endregion
+			#pragma region TRANSFER_TRANSITION_COMMANDS
+			
+			/// @brief Begins a transfer command and returns the command buffer index pair used for the command allocated from a TinyVkCommandPool.
 			std::pair<VkCommandBuffer, int32_t> BeginTransferCmd() {
 				std::pair<VkCommandBuffer, int32_t> bufferIndexPair = renderContext.commandPool.LeaseBuffer(true);
 
@@ -360,7 +365,7 @@
 				return bufferIndexPair;
 			}
 
-			/// <summary>Ends a transfer command and gives the leased/rented command buffer pair back to the TinyVkCommandPool.</summary>
+			/// @brief Ends a transfer command and gives the leased/rented command buffer pair back to the TinyVkCommandPool.
 			void EndTransferCmd(std::pair<VkCommandBuffer, int32_t> bufferIndexPair) {
 				vkEndCommandBuffer(bufferIndexPair.first);
 
@@ -375,7 +380,7 @@
 				renderContext.commandPool.ReturnBuffer(bufferIndexPair);
 			}
 			
-			/// <summary>Transitions the GPU bound VkImage from its current layout into a new layout.</summary>
+			/// @brief Transitions the GPU bound VkImage from its current layout into a new layout.
 			void TransitionLayoutCmd(TinyVkImageLayout newLayout) {
 				std::pair<VkCommandBuffer, int32_t> bufferIndexPair = BeginTransferCmd();
 				
@@ -388,7 +393,7 @@
 				EndTransferCmd(bufferIndexPair);
 			}
 
-			/// <summary>Transitions the GPU bound VkImage from its current layout into a new layout.</summary>
+			/// @brief Transitions the GPU bound VkImage from its current layout into a new layout.
 			void TransitionLayoutBarrier(VkCommandBuffer cmdBuffer, TinyVkCmdBufferSubmitStage cmdBufferStage, TinyVkImageLayout newLayout) {
 				VkPipelineStageFlags srcStage, dstStage;
 				VkImageMemoryBarrier pipelineBarrier = GetPipelineBarrier(newLayout, cmdBufferStage, srcStage, dstStage);
@@ -397,7 +402,7 @@
 				vkCmdPipelineBarrier(cmdBuffer, srcStage, dstStage, 0, 0, VK_NULL_HANDLE, 0, VK_NULL_HANDLE, 1, &pipelineBarrier);
 			}
 
-			/// <summary>Copies data from CPU accessible memory to GPU accessible memory.</summary>
+			/// @brief Copies data from CPU accessible memory to GPU accessible memory.
 			void StageImageData(void* data, VkDeviceSize dataSize) {
 				TinyVkBuffer stagingBuffer = TinyVkBuffer(renderContext, dataSize, TinyVkBufferType::TINYVK_BUFFER_TYPE_STAGING);
 				
@@ -409,7 +414,7 @@
 				stagingBuffer.Dispose();
 			}
 
-			/// <summary>Copies data from the source TinyVkBuffer into this TinyVkImage.</summary>
+			/// @brief Copies data from the source TinyVkBuffer into this TinyVkImage.
 			void TransferFromBufferCmd(TinyVkBuffer& srcBuffer) {
 				std::pair<VkCommandBuffer, int32_t> bufferIndexPair = BeginTransferCmd();
 
@@ -425,7 +430,7 @@
 				EndTransferCmd(bufferIndexPair);
 			}
 
-			/// <summary>Copies data from the source TinyVkBuffer into this TinyVkImage.</summary>
+			/// @brief Copies data from the source TinyVkBuffer into this TinyVkImage.
 			void TransferFromBufferCmdExt(TinyVkBuffer& srcBuffer, VkExtent2D size, VkOffset2D offset) {
 				std::pair<VkCommandBuffer, int32_t> bufferIndexPair = BeginTransferCmd();
 
@@ -442,7 +447,7 @@
 				EndTransferCmd(bufferIndexPair);
 			}
 			
-			/// <summary>Copies data from this TinyVkImage into the destination TinyVkBuffer</summary>
+			/// @brief Copies data from this TinyVkImage into the destination TinyVkBuffer
 			void TransferToBufferCmd(TinyVkBuffer& dstBuffer) {
 				std::pair<VkCommandBuffer, int32_t> bufferIndexPair = BeginTransferCmd();
 
@@ -458,7 +463,7 @@
 				EndTransferCmd(bufferIndexPair);
 			}
 
-			/// <summary>Copies data from this TinyVkImage into the destination TinyVkBuffer</summary>
+			/// @brief Copies data from this TinyVkImage into the destination TinyVkBuffer
 			void TransferToBufferCmdExt(TinyVkBuffer& dstBuffer, VkExtent2D size, VkOffset2D offset) {
 				std::pair<VkCommandBuffer, int32_t> bufferIndexPair = BeginTransferCmd();
 
@@ -478,8 +483,8 @@
 				EndTransferCmd(bufferIndexPair);
 			}
 
-			/// <summary>Copies data from this TinyVkImage into the destination TinyVkBuffer</summary>
-			static void TransferImageCmd(TinyVkRenderContext& renderContext, TinyVkImage& srcImage, TinyVkImage& dstImage, VkDeviceSize dataSize) {
+			/// @brief Copies data from this TinyVkImage into the destination TinyVkBuffer
+			inline static void TransferImageCmd(TinyVkRenderContext& renderContext, TinyVkImage& srcImage, TinyVkImage& dstImage, VkDeviceSize dataSize) {
 				if (srcImage.format != dstImage.format)
 					throw TinyVkRuntimeError("TinyVulkan: Tried to copy [SOURCE] image to [DESTINATION] image with different VkImageFormat!");
 				
@@ -488,8 +493,8 @@
 				dstImage.TransferFromBufferCmd(buffer);
 			}
 
-			/// <summary>Copies data from this TinyVkImage into the destination TinyVkBuffer</summary>
-			static void TransferImageCmdExt(TinyVkRenderContext& renderContext, TinyVkImage& srcImage, TinyVkImage& dstImage, VkDeviceSize dataSize, VkExtent2D size, VkOffset2D srcOffset, VkOffset2D dstOffset) {
+			/// @brief Copies data from this TinyVkImage into the destination TinyVkBuffer
+			inline static void TransferImageCmdExt(TinyVkRenderContext& renderContext, TinyVkImage& srcImage, TinyVkImage& dstImage, VkDeviceSize dataSize, VkExtent2D size, VkOffset2D srcOffset, VkOffset2D dstOffset) {
 				if (srcImage.format != dstImage.format)
 					throw TinyVkRuntimeError("TinyVulkan: Tried to copy [SOURCE] image to [DESTINATION] image with different VkImageFormat!");
 				
@@ -498,10 +503,16 @@
 				dstImage.TransferFromBufferCmdExt(buffer, size, dstOffset);
 			}
 			
-			/// <summary>Creates the data descriptor that represents this image when passing into graphicspipeline.SelectWrite*Descriptor().</summary>
+			#pragma endregion
+			#pragma region PIPELINE_DESCRIPTOR
+			
+			/// @brief Creates the data descriptor that represents this image when passing into graphicspipeline.SelectWrite*Descriptor().
 			VkDescriptorImageInfo GetImageDescriptor() { return { imageSampler, imageView, (VkImageLayout) imageLayout }; }
 
-			/// <summary>Returns a vec2 UV coordinate converted from this image Width/Height and passed vec2 XY coordinate.</summary>
+			#pragma endregion
+			#pragma region COORDINATE_MATH
+			
+			/// @brief Returns a vec2 UV coordinate converted from this image Width/Height and passed vec2 XY coordinate.
 			glm::vec2 GetUVCoords(glm::vec2 xy, bool forceClamp = true) {
 				if (forceClamp)
 					xy = glm::clamp(xy, glm::vec2(0.0,0.0), glm::vec2(static_cast<float>(width), static_cast<float>(height)));
@@ -509,13 +520,15 @@
 				return glm::vec2(xy.x * (1.0 / static_cast<float>(width)), xy.y * (1.0 / static_cast<float>(height)));
 			}
 
-			/// <summary>Returns a vec2 XY coordinate converted from this image Width/Height and passed vec2 UV coordinate.</summary>
+			/// @brief Returns a vec2 XY coordinate converted from this image Width/Height and passed vec2 UV coordinate.
 			glm::vec2 GetXYCoords(glm::vec2 uv, bool forceClamp = true) {
 				if (forceClamp)
 					uv = glm::clamp(uv, glm::vec2(0.0, 0.0), glm::vec2(1.0, 1.0));
 					
 				return glm::vec2(uv.x * static_cast<float>(width), uv.y * static_cast<float>(height));
 			}
+
+			#pragma endregion
 		};
 	}
 #endif

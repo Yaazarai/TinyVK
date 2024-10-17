@@ -34,7 +34,7 @@
 			TINYVK_BUFFER_TYPE_STORAGE,  /// For writing data from fragment/compute shaders.
 		};
 
-		/// <summary>GPU device Buffer for sending data to the render (GPU) device.</summary>
+		/// @brief GPU device Buffer for sending data to the render (GPU) device.
 		class TinyVkBuffer : public TinyVkDisposable {
 		private:
 			void CreateBuffer(VkDeviceSize size, VkBufferUsageFlags usage, VmaAllocationCreateFlags flags) {
@@ -59,7 +59,7 @@
 			VmaAllocationInfo description;
 			VkDeviceSize size;
 
-			/// <summary>Deleted copy constructor (dynamic objects are not copyable).</summary>
+			/// @brief Deleted copy constructor (dynamic objects are not copyable).
 			TinyVkBuffer operator=(const TinyVkBuffer& buffer) = delete;
 			
 			~TinyVkBuffer() { this->Dispose(); }
@@ -70,7 +70,7 @@
 				vmaDestroyBuffer(renderContext.vkdevice.GetAllocator(), buffer, memory);
 			}
 
-			/// <summary>Creates a VkBuffer of the specified size in bytes with auto-set memory allocation properties by TinyVkBufferType.</summary>
+			/// @brief Creates a VkBuffer of the specified size in bytes with auto-set memory allocation properties by TinyVkBufferType.
 			TinyVkBuffer(TinyVkRenderContext& renderContext, VkDeviceSize dataSize, TinyVkBufferType type)
 			: renderContext(renderContext), size(dataSize), bufferType(bufferType) {
 				onDispose.hook(TinyVkCallback<bool>([this](bool forceDispose) {this->Disposable(forceDispose); }));
@@ -98,7 +98,7 @@
 				}
 			}
 
-			/// <summary>Begins a transfer command and returns the command buffer index pair used for the command allocated from a TinyVkCommandPool.</summary>
+			/// @brief Begins a transfer command and returns the command buffer index pair used for the command allocated from a TinyVkCommandPool.
 			std::pair<VkCommandBuffer, int32_t> BeginTransferCmd() {
 				std::pair<VkCommandBuffer, int32_t> bufferIndexPair = renderContext.commandPool.LeaseBuffer(true);
 				
@@ -109,7 +109,7 @@
 				return bufferIndexPair;
 			}
 
-			/// <summary>Ends a transfer command and gives the leased/rented command buffer pair back to the TinyVkCommandPool.</summary>
+			/// @brief Ends a transfer command and gives the leased/rented command buffer pair back to the TinyVkCommandPool.
 			void EndTransferCmd(std::pair<VkCommandBuffer, int32_t> bufferIndexPair) {
 				vkEndCommandBuffer(bufferIndexPair.first);
 
@@ -124,7 +124,7 @@
 				renderContext.commandPool.ReturnBuffer(bufferIndexPair);
 			}
 
-			/// <summary>Copies data from the source TinyVkBuffer into this TinyVkBuffer.</summary>
+			/// @brief Copies data from the source TinyVkBuffer into this TinyVkBuffer.
 			void TransferBufferCmd(TinyVkRenderContext& renderContext, TinyVkBuffer& srcBuffer, TinyVkBuffer& dstBuffer, VkDeviceSize dataSize, VkDeviceSize srceOffset = 0, VkDeviceSize destOffset = 0) {
 				std::pair<VkCommandBuffer,int32_t> bufferIndexPair = BeginTransferCmd();
 
@@ -137,7 +137,7 @@
 				EndTransferCmd(bufferIndexPair);
 			}
 			
-			/// <summary>Copies data from CPU accessible memory to GPU accessible memory for a list of buffers.</summary>
+			/// @brief Copies data from CPU accessible memory to GPU accessible memory for a list of buffers.
 			void StageBufferDataQueue(std::vector<std::tuple<TinyVkBuffer&, void*, VkDeviceSize, VkDeviceSize, VkDeviceSize>> buffers) {
 				TinyVkBuffer& startBuffer = std::get<0>(buffers[0]);
 				std::pair<VkCommandBuffer,int32_t> bufferIndexPair = BeginTransferCmd();
@@ -154,7 +154,7 @@
 				EndTransferCmd(bufferIndexPair);
 			}
 
-			/// <summary>Copies data from CPU accessible memory to GPU accessible memory.</summary>
+			/// @brief Copies data from CPU accessible memory to GPU accessible memory.
 			void StageBufferData(void* data, VkDeviceSize dataSize, VkDeviceSize srcOffset = 0, VkDeviceSize dstOffset = 0) {
 				TinyVkBuffer stagingBuffer = TinyVkBuffer(renderContext, dataSize, TinyVkBufferType::TINYVK_BUFFER_TYPE_STAGING);
 				memcpy(stagingBuffer.description.pMappedData, data, (size_t)dataSize);
@@ -162,7 +162,9 @@
 				stagingBuffer.Dispose();
 			}
 
-			/// <summary>Get pipeline stages relative to the current image layout and command buffer recording stage.</summary>
+			#pragma region SYNCHRONIZATION
+			
+			/// @brief Get pipeline stages relative to the current image layout and command buffer recording stage.
 			void GetPipelineBarrierStages(TinyVkCmdBufferSubmitStage cmdBufferStage, VkPipelineStageFlags& srcStage, VkPipelineStageFlags& dstStage, VkAccessFlags& srcAccessMask, VkAccessFlags& dstAccessMask) {
 				if (cmdBufferStage == TinyVkCmdBufferSubmitStage::TINYVK_BEGIN) {
 					switch(bufferType) {
@@ -246,7 +248,7 @@
 				}
 			}
 			
-			/// <summary>Get the pipeline barrier info for resource synchronization in buffer pipeline barrier pNext chain.</summary>
+			/// @brief Get the pipeline barrier info for resource synchronization in buffer pipeline barrier pNext chain.
 			VkBufferMemoryBarrier GetPipelineBarrier(TinyVkCmdBufferSubmitStage cmdBufferStage, VkPipelineStageFlags& srcStage, VkPipelineStageFlags& dstStage) {
 				VkBufferMemoryBarrier pipelineBarrier {
 					.sType = VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER_2,
@@ -260,27 +262,26 @@
 				return pipelineBarrier;
 			}
 
-			/// <summary>Get the pipeline barrier info and submit call of vkCmdPipelineBarrier to VkCommandBuffer.</summary>
+			/// @brief Get the pipeline barrier info and submit call of vkCmdPipelineBarrier to VkCommandBuffer.
 			void MemoryPipelineBarrier(VkCommandBuffer cmdBuffer, TinyVkCmdBufferSubmitStage cmdBufferStage) {
 				VkPipelineStageFlags srcStage, dstStage;
 				VkBufferMemoryBarrier pipelineBarrier = GetPipelineBarrier(cmdBufferStage, srcStage, dstStage);
 				vkCmdPipelineBarrier(cmdBuffer, srcStage, dstStage, 0, 0, VK_NULL_HANDLE, 1, &pipelineBarrier, 0, VK_NULL_HANDLE);
 			}
 			
-			/// <summary>Creates the data descriptor that represents this buffer when passing into graphicspipeline.SelectWrite*Descriptor().</summary>
+			#pragma endregion
+			#pragma region PIPELINE_DESCRIPTORS
+			
+			/// @brief Creates the data descriptor that represents this buffer when passing into graphicspipeline.SelectWrite*Descriptor().
 			VkDescriptorBufferInfo GetBufferDescriptor(VkDeviceSize offset = 0, VkDeviceSize range = VK_WHOLE_SIZE) { return { buffer, offset, range }; }
 
-			/// <summary>Gets the underlying GPU allocated buffer.</summary>
-			VkBuffer GetBuffer() { return buffer; }
-
-			/// <summary>Getc allocation description info about the GPU allocated buffer.</summary>
-			VmaAllocationInfo GetAllocInfo() { return description; }
-
-			/// <summary>Get the data/memory size of a vector of objects.</summary>
+			#pragma endregion
+			
+			/// @brief Get the data/memory size of a vector of objects.
 			template<typename T>
 			static size_t GetSizeofVector(std::vector<T> vector) { return vector.size() * sizeof(T); }
 
-			/// <summary>Get the data/memory size of an array of objects.</summary>
+			/// @brief Get the data/memory size of an array of objects.
 			template<typename T, size_t S>
 			static size_t GetSizeofArray(std::array<T,S> array) { return S * sizeof(T); }
 		};

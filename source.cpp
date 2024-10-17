@@ -66,7 +66,7 @@ int32_t TINYVULKAN_WINDOWMAIN {
     
     imageRenderer.onRenderEvents.hook(TinyVkCallback<TinyVkCommandPool&>(
     [&indices, &vkdevice, &window, &imageRenderer, &pipeline, &vbuffer, &ibuffer, &projection1](TinyVkCommandPool& commandPool) {
-        glm::mat4 camera = TinyVkMath::Project2D(window.GetWidth(), window.GetHeight(), 0, 0, 1.0, 0.0);
+        glm::mat4 camera = TinyVkMath::Project2D(window.hwndWidth, window.hwndHeight, 0, 0, 1.0, 0.0);
         
         projection1.StageBufferData(&camera, sizeof(glm::mat4), 0, 0);
         auto commandBuffer = commandPool.LeaseBuffer(false);
@@ -108,7 +108,7 @@ int32_t TINYVULKAN_WINDOWMAIN {
         //offsetx = int(mousex) * leftclick;
         //offsety = int(mousey) * leftclick;
 
-        glm::mat4 camera = TinyVkMath::Project2D(window.GetWidth(), window.GetHeight(), offsetx, offsety, 1.0, 0.0);
+        glm::mat4 camera = TinyVkMath::Project2D(window.hwndWidth, window.hwndHeight, offsetx, offsety, 1.0, 0.0);
         frame.projection.StageBufferData(&camera, sizeof(glm::mat4), 0, 0);
         VkDescriptorBufferInfo cameraDescriptorInfo = frame.projection.GetBufferDescriptor();
         VkWriteDescriptorSet cameraDescriptor = pipeline.SelectWriteBufferDescriptor(0, 1, { &cameraDescriptorInfo });
@@ -121,8 +121,8 @@ int32_t TINYVULKAN_WINDOWMAIN {
         
         angle += 1;
 
-        if (angle % 200 == 0) swapRenderer.PushPresentMode(VK_PRESENT_MODE_IMMEDIATE_KHR);
-        if (angle % 400 == 0) swapRenderer.PushPresentMode(VK_PRESENT_MODE_FIFO_KHR);
+        //if (angle % 200 == 0) swapRenderer.PushPresentMode(VK_PRESENT_MODE_IMMEDIATE_KHR);
+        //if (angle % 400 == 0) swapRenderer.PushPresentMode(VK_PRESENT_MODE_FIFO_KHR);
     }));
 
     // MULTI-THREADED: (window events on main, rendering on secondary)

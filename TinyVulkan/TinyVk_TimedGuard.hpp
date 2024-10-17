@@ -18,7 +18,7 @@
 
 			~timed_guard() noexcept { Unlock(); }
 
-			/// <summary>Creates a timed lock_guard() which accepts a mutex.</summary>
+			/// @brief Creates a timed lock_guard() which accepts a mutex.
 			explicit timed_guard(std::timed_mutex& lock) : lock(lock) {
 				if (wait) {
 					signal = lock.try_lock_for(std::chrono::milliseconds(timeout));

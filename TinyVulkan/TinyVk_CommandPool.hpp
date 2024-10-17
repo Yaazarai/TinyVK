@@ -4,14 +4,14 @@
 	#include "./TinyVulkan.hpp"
 
 	namespace TINYVULKAN_NAMESPACE {
-		///<summary>Submission stage of the command buffer (for getting pipeline barrier info).</summary>
+		/// @brief Submission stage of the command buffer (for getting pipeline barrier info).
 		enum class TinyVkCmdBufferSubmitStage {
 			TINYVK_BEGIN,       /// Pre-Render & Pre-Pipeline-Access & Pipeline-Acess submit stage.
 			TINYVK_END,         /// Post-Render & Post-Pipeline-Acess submit stage.
 			TINYVK_BEGIN_TO_END /// No-Pipeline-Access submit stage (for layout transitions).
 		};
 
-		/// <summary>Pool of managed rentable VkCommandBuffers for performing rendering/transfer operations.</summary>
+		/// @brief Pool of managed rentable VkCommandBuffers for performing rendering/transfer operations.
 		class TinyVkCommandPool : public TinyVkDisposable {
 		private:
 			VkCommandPool commandPool;
@@ -68,7 +68,7 @@
 				vkDestroyCommandPool(vkdevice.GetLogicalDevice(), commandPool, VK_NULL_HANDLE);
 			}
 			
-			/// <summary>Creates a command pool to lease VkCommandBuffers from for recording render commands.</summary>
+			/// @brief Creates a command pool to lease VkCommandBuffers from for recording render commands.
 			TinyVkCommandPool(TinyVkVulkanDevice& vkdevice, bool useAsComputeCommandPool, size_t bufferCount = defaultCommandPoolSize) : vkdevice(vkdevice), useAsComputeCommandPool(useAsComputeCommandPool), bufferCount(bufferCount) {
 				onDispose.hook(TinyVkCallback<bool>([this](bool forceDispose) {this->Disposable(forceDispose); }));
 
@@ -76,16 +76,17 @@
 				CreateCommandBuffers(bufferCount+1);
 			}
 
-			/// <summary>Returns the underlying VkCommandPool.</summary>
-			VkCommandPool& GetPool() { return commandPool; }
-			
-			/// <summary>Returns the underling list of VkCommandBuffers.</summary>
-			std::vector<std::pair<VkCommandBuffer, VkBool32>>& GetBuffers() { return commandBuffers; }
-			
-			/// <summary>Returns the total number of allocated VkCommandBuffers.</summary>
-			size_t GetBufferCount() { return commandBuffers.size(); }
+			#pragma region REFERENCE_GETTERS
 
-			/// <summary>Returns true/false if ANY VkCommandBuffers are available to be Leased.</summary>
+			VkCommandPool& GetPool() { return commandPool; }
+			std::vector<std::pair<VkCommandBuffer, VkBool32>>& GetBuffers() { return commandBuffers; }
+			size_t GetBufferCount() { return commandBuffers.size(); }
+			static const size_t GetDefaultPoolSize() { return defaultCommandPoolSize; }
+
+			#pragma endregion
+			#pragma region COMMAND_POOL_HANDLING
+
+			/// @brief Returns true/false if ANY VkCommandBuffers are available to be Leased.
 			bool HasBuffers() {
 				for (auto& cmdBuffer : commandBuffers)
 					if (!cmdBuffer.second) return true;
@@ -93,7 +94,7 @@
 				return false;
 			}
 
-			/// <summary>Returns the number of available VkCommandBuffers that can be Leased.</summary>
+			/// @brief Returns the number of available VkCommandBuffers that can be Leased.
 			size_t HasBuffersCount() {
 				size_t count = 0;
 				for(auto& cmdBuffer : commandBuffers)
@@ -101,7 +102,7 @@
 				return count;
 			}
 
-			/// <summary>Reserves a VkCommandBuffer for use and returns the VkCommandBuffer and it's ID (used for returning to the pool).</summary>
+			/// @brief Reserves a VkCommandBuffer for use and returns the VkCommandBuffer and it's ID (used for returning to the pool).
 			std::pair<VkCommandBuffer,int32_t> LeaseBuffer(bool resetCmdBuffer = false) {
 				size_t index = 0;
 				for(auto& cmdBuffer : commandBuffers)
@@ -115,7 +116,7 @@
 				return std::pair<VkCommandBuffer,int32_t>(VK_NULL_HANDLE,-1);
 			}
 
-			/// <summary>Free's up the VkCommandBuffer that was previously rented for re-use.</summary>
+			/// @brief Free's up the VkCommandBuffer that was previously rented for re-use.
 			void ReturnBuffer(std::pair<VkCommandBuffer, int32_t> bufferIndexPair) {
 				if (bufferIndexPair.second < 0 || bufferIndexPair .second >= commandBuffers.size())
 					throw TinyVkRuntimeError("TinyVulkan: Failed to return command buffer!");
@@ -123,16 +124,15 @@
 				commandBuffers[bufferIndexPair.second].second = false;
 			}
 
-			/// <summary>Sets all of the command buffers to available--optionally resets their recorded commands.</summary>
+			/// @brief Sets all of the command buffers to available--optionally resets their recorded commands.
 			void ReturnAllBuffers() {
 				vkResetCommandPool(vkdevice.GetLogicalDevice(), commandPool, VK_COMMAND_POOL_RESET_RELEASE_RESOURCES_BIT);
 				
 				for(auto& cmdBuffer : commandBuffers)
 					cmdBuffer.second = false;
 			}
-
-			/// <summary>Returns the default command pool size (number of buffers in the pool).</summary> 
-			static const size_t GetDefaultPoolSize() { return defaultCommandPoolSize; }
+			
+			#pragma endregion
 		};
 	}
 #endif

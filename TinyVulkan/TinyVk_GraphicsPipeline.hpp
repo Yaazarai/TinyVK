@@ -14,7 +14,7 @@
 			TINYVK_DESCRIPTOR_STORAGE_BUFFER = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER
 		};
 
-		/// <summary>Represents the Vertex shader layout data passing through the graphics pipeline.</summary>
+		/// @brief Represents the Vertex shader layout data passing through the graphics pipeline.
 		struct TinyVkVertexDescription {
 			const VkVertexInputBindingDescription binding;
 			const std::vector<VkVertexInputAttributeDescription> attributes;
@@ -22,7 +22,7 @@
 			TinyVkVertexDescription(VkVertexInputBindingDescription binding, const std::vector<VkVertexInputAttributeDescription> attributes) : binding(binding), attributes(attributes) {}
 		};
 
-		/// <summary>Vulkan Graphics Pipeline using Dynamic Viewports/Scissors, Push Descriptors/Constants.</summary>
+		/// @brief Vulkan Graphics Pipeline using Dynamic Viewports/Scissors, Push Descriptors/Constants.
 		class TinyVkGraphicsPipeline : public TinyVkDisposable {
 		private:
 			VkDescriptorSetLayout descriptorLayout;
@@ -75,7 +75,7 @@
 				return shaderStageInfo;
 			}
 
-			std::vector<char> ReadFile(const std::string& path) {
+			std::vector<char> ReadShaderFile(const std::string& path) {
 				std::ifstream file(path, std::ios::ate | std::ios::binary);
 
 				if (!file.is_open())
@@ -201,33 +201,11 @@
 				///////////////////////////////////////////////////////////////////////////////////////////////////////
 				std::vector<VkPipelineShaderStageCreateInfo> shaderPipelineCreateInfo;
 				std::vector<VkShaderModule> shaderModules;
-				auto extensions = vkdevice.GetDeviceExtensions();
-				if (std::find_if(extensions.begin(), extensions.end(), [](std::string A) { return A.compare(VK_KHR_MAINTENANCE_5_EXTENSION_NAME) == 0; }) != extensions.end()) {
-					for (size_t i = 0; i < shaders.size(); i++) {
-						VkShaderModuleCreateInfo shaderCreateInfo{};
-						shaderCreateInfo.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
-						auto shaderCode = ReadFile(std::get<1>(shaders[i]));
-						shaderCreateInfo.codeSize = shaderCode.size();
-						shaderCreateInfo.pCode = reinterpret_cast<const uint32_t*>(shaderCode.data());
-
-						VkPipelineShaderStageCreateInfo shaderStagePipelineInfo{};
-						shaderStagePipelineInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
-						shaderStagePipelineInfo.stage = std::get<0>(shaders[i]);
-						shaderStagePipelineInfo.pName = "main";
-						shaderStagePipelineInfo.pNext = &shaderCreateInfo;
-						shaderPipelineCreateInfo.push_back(shaderStagePipelineInfo);
-
-						#if TVK_VALIDATION_LAYERS
-						std::cout << "TinyVulkan: Loading Shader @ " << std::get<1>(shaders[i]) << std::endl;
-						#endif
-					}
-				} else {
-					for (size_t i = 0; i < shaders.size(); i++) {
-						auto shaderCode = ReadFile(std::get<1>(shaders[i]));
-						auto shaderModule = CreateShaderModule(shaderCode);
-						shaderModules.push_back(shaderModule);
-						shaderPipelineCreateInfo.push_back(CreateShaderInfo(std::get<1>(shaders[i]), shaderModule, std::get<0>(shaders[i])));
-					}
+				for (size_t i = 0; i < shaders.size(); i++) {
+					auto shaderCode = ReadShaderFile(std::get<1>(shaders[i]));
+					auto shaderModule = CreateShaderModule(shaderCode);
+					shaderModules.push_back(shaderModule);
+					shaderPipelineCreateInfo.push_back(CreateShaderInfo(std::get<1>(shaders[i]), shaderModule, std::get<0>(shaders[i])));
 				}
 				
 				VkGraphicsPipelineCreateInfo pipelineInfo{};
@@ -298,10 +276,13 @@
 			VkPipeline GetGraphicsPipeline() { return graphicsPipeline; }
 			VkQueue GetGraphicsQueue() { return graphicsQueue; }
 			VkQueue GetPresentQueue() { return presentQueue; }
-			
-			#pragma endregion
+			bool BlendingIsEnabled() { return enableBlending; }
+			bool DepthTestingIsEnabled() { return enableDepthTesting; }
 
-			/// <summary>Returns the optimal VkFormat for the desired depth image format.</summary>
+			#pragma endregion
+			#pragma region DEPTH_FORMATS
+			
+			/// @brief Returns the optimal VkFormat for the desired depth image format.
 			VkFormat QueryDepthFormat(VkImageTiling tiling = VK_IMAGE_TILING_OPTIMAL) {
 				const std::vector<VkFormat>& candidates = { VK_FORMAT_D32_SFLOAT, VK_FORMAT_D32_SFLOAT_S8_UINT, VK_FORMAT_D24_UNORM_S8_UINT };
 				for (VkFormat format : candidates) {
@@ -319,13 +300,10 @@
 				throw TinyVkRuntimeError("TinyVulkan: Failed to find supported format!");
 			}
 
-			/// <summary>Returns true/false whether alpha blending is enabled on the graphics pipeline.</summary>
-			bool BlendingIsEnabled() { return enableBlending; }
-
-			/// <summary>Returns true/false whether depthj fragment testing is enabled on the graphics pipeline.</summary>
-			bool DepthTestingIsEnabled() { return enableDepthTesting; }
-
-			/// <summary>Gets a generic Normal Blending Mode for creating a GraphicsPipeline with.</summary>
+			#pragma endregion
+			#pragma region PIPELINE_DESCRIPTORS
+			
+			/// @brief Gets a generic Normal Blending Mode for creating a GraphicsPipeline with.
 			inline static const VkPipelineColorBlendAttachmentState GetBlendDescription(bool isBlendingEnabled = true) {
 				VkPipelineColorBlendAttachmentState colorBlendAttachment{};
 				colorBlendAttachment.colorWriteMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT;
@@ -341,7 +319,7 @@
 				return colorBlendAttachment;
 			}
 
-			/// <summary>Returns the push constant range info of a given size applied to the given shader stages.</summary>
+			/// @brief Returns the push constant range info of a given size applied to the given shader stages.
 			inline static VkPushConstantRange SelectPushConstantRange(uint32_t pushConstantRangeSize = 0, VkShaderStageFlags shaderStages = VK_SHADER_STAGE_ALL_GRAPHICS) {
 				VkPushConstantRange pushConstantRange{};
 				pushConstantRange.stageFlags = shaderStages;
@@ -350,7 +328,7 @@
 				return pushConstantRange;
 			}
 
-			/// <summary>Creates a layout description for how a descriptor should be bound to the graphics pipeline at hwta binding and shader stages./summary>
+			/// @brief Creates a layout description for how a descriptor should be bound to the graphics pipeline at hwta binding and shader stages./summary>
 			inline static VkDescriptorSetLayoutBinding SelectPushDescriptorLayoutBinding(uint32_t binding, VkDescriptorType descriptorType, VkShaderStageFlags stageFlags, uint32_t descriptorCount = 1) {
 				VkDescriptorSetLayoutBinding descriptorLayoutBinding {};
 				descriptorLayoutBinding.binding = binding;
@@ -361,7 +339,7 @@
 				return descriptorLayoutBinding;
 			}
 
-			/// <summary>Creates a generic write descriptor to represent data passed to the GPU when rendering (on myrenderer.PushDescriptorSet).</summary>
+			/// @brief Creates a generic write descriptor to represent data passed to the GPU when rendering (on myrenderer.PushDescriptorSet).
 			inline static VkWriteDescriptorSet SelectWriteDescriptor(uint32_t binding, uint32_t descriptorCount, VkDescriptorType descriptorType, const VkDescriptorImageInfo* imageInfo, const VkDescriptorBufferInfo* bufferInfo) {
 				VkWriteDescriptorSet writeDescriptorSets{};
 				writeDescriptorSets.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
@@ -374,7 +352,7 @@
 				return writeDescriptorSets;
 			}
 
-			/// <summary>Creates a write image descriptor (Combined Image Sampler) for passing images to the GPU (on myrenderer.PushDescriptorSet).</summary>
+			/// @brief Creates a write image descriptor (Combined Image Sampler) for passing images to the GPU (on myrenderer.PushDescriptorSet).
 			inline static VkWriteDescriptorSet SelectWriteImageDescriptor(uint32_t binding, uint32_t descriptorCount, const VkDescriptorImageInfo* imageInfo) {
 				VkWriteDescriptorSet writeDescriptorSets{};
 				writeDescriptorSets.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
@@ -386,7 +364,7 @@
 				return writeDescriptorSets;
 			}
 
-			/// <summary>Creates a write buffer descriptor (any of VK_DESCRIPTOR_TYPE_*_BUFFER) for passing buffers to the GPU (on myrenderer.PushDescriptorSet).</summary>
+			/// @brief Creates a write buffer descriptor (any of VK_DESCRIPTOR_TYPE_*_BUFFER) for passing buffers to the GPU (on myrenderer.PushDescriptorSet).
 			inline static VkWriteDescriptorSet SelectWriteBufferDescriptor(uint32_t binding, uint32_t descriptorCount, const VkDescriptorBufferInfo* bufferInfo) {
 				VkWriteDescriptorSet writeDescriptorSets{};
 				writeDescriptorSets.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
@@ -398,7 +376,7 @@
 				return writeDescriptorSets;
 			}
 		
-			/// <summary>Creates a layout description for how a descriptor should be bound to the graphics pipeline at hwta binding and shader stages./summary>
+			/// @brief Creates a layout description for how a descriptor should be bound to the graphics pipeline at hwta binding and shader stages./summary>
 			inline static VkDescriptorSetLayoutBinding SelectPushDescriptorLayoutBinding(uint32_t binding, TinyVkDescriptorTypes descriptorType, VkShaderStageFlags stageFlags, uint32_t descriptorCount = 1) {
 				VkDescriptorSetLayoutBinding descriptorLayoutBinding {};
 				descriptorLayoutBinding.binding = binding;
@@ -409,7 +387,7 @@
 				return descriptorLayoutBinding;
 			}
 
-			/// <summary>Creates a generic write descriptor to represent data passed to the GPU when rendering (on myrenderer.PushDescriptorSet).</summary>
+			/// @brief Creates a generic write descriptor to represent data passed to the GPU when rendering (on myrenderer.PushDescriptorSet).
 			inline static VkWriteDescriptorSet SelectWriteDescriptor(uint32_t binding, uint32_t descriptorCount, TinyVkDescriptorTypes descriptorType, const VkDescriptorImageInfo* imageInfo, const VkDescriptorBufferInfo* bufferInfo) {
 				VkWriteDescriptorSet writeDescriptorSets{};
 				writeDescriptorSets.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
@@ -421,6 +399,8 @@
 				writeDescriptorSets.pBufferInfo = bufferInfo;
 				return writeDescriptorSets;
 			}
+
+			#pragma endregion
 		};
 	}
 #endif
