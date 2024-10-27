@@ -207,17 +207,21 @@
 				VkPipelineStageFlags waitStages[] = { VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT };
 				VkSemaphore waitSemaphores[] = { renderTarget->imageAvailable };
 				VkSemaphore signalSemaphores[] = { renderTarget->imageFinished };
+				
+				VkResult result;
 				if (renderTarget->imageType == TinyVkImageType::TINYVK_IMAGE_TYPE_SWAPCHAIN) {
 					submitInfo.waitSemaphoreCount = 1;
 					submitInfo.pWaitDstStageMask = waitStages;
 					submitInfo.pWaitSemaphores = waitSemaphores;
 					submitInfo.signalSemaphoreCount = 1;
 					submitInfo.pSignalSemaphores = signalSemaphores;
+					result = vkQueueSubmit(renderContext.graphicsPipeline.GetPresentQueue(), 1, &submitInfo, renderTarget->imageWaitable);
+				} else {
+					result = vkQueueSubmit(renderContext.graphicsPipeline.GetGraphicsQueue(), 1, &submitInfo, renderTarget->imageWaitable);
 				}
 
-				VkResult result = vkQueueSubmit(renderContext.graphicsPipeline.GetGraphicsQueue(), 1, &submitInfo, renderTarget->imageWaitable);
 				if (result != VK_SUCCESS)
-					throw TinyVkRuntimeError("TinyVulkan: Failed to submit draw command buffer!");
+					throw TinyVkRuntimeError("TinyVulkan: Failed to submit draw command buffer graphics queue!");
 				return result;
 			}
 

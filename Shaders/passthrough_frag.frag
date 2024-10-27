@@ -1,4 +1,5 @@
 #version 450
+#pragma shader_stage(fragment)
 
 layout (location = 0) in vec2 fragCoord;
 layout(location = 1) in vec4 fragColor;

@@ -58,6 +58,7 @@
 			VmaAllocation memory = VK_NULL_HANDLE;
 			VmaAllocationInfo description;
 			VkDeviceSize size;
+			VkFence bufferWaitable;
 
 			/// @brief Deleted copy constructor (dynamic objects are not copyable).
 			TinyVkBuffer operator=(const TinyVkBuffer& buffer) = delete;
@@ -68,6 +69,7 @@
 				if (waitIdle) renderContext.vkdevice.DeviceWaitIdle();
 
 				vmaDestroyBuffer(renderContext.vkdevice.GetAllocator(), buffer, memory);
+				vkDestroyFence(renderContext.vkdevice.GetLogicalDevice(), bufferWaitable, VK_NULL_HANDLE);
 			}
 
 			/// @brief Creates a VkBuffer of the specified size in bytes with auto-set memory allocation properties by TinyVkBufferType.
@@ -96,6 +98,13 @@
 					CreateBuffer(size, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT | VMA_ALLOCATION_CREATE_MAPPED_BIT);
 					break;
 				}
+
+				VkFenceCreateInfo fenceInfo{};
+				fenceInfo.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
+				fenceInfo.flags = VK_FENCE_CREATE_SIGNALED_BIT;
+
+				if (vkCreateFence(renderContext.vkdevice.GetLogicalDevice(), &fenceInfo, VK_NULL_HANDLE, &bufferWaitable) != VK_SUCCESS)
+					throw TinyVkRuntimeError("TinyVulkan: Failed to create synchronization objects for TinyVkBuffer!");
 			}
 
 			/// @brief Begins a transfer command and returns the command buffer index pair used for the command allocated from a TinyVkCommandPool.

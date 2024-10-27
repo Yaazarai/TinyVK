@@ -88,6 +88,7 @@
     #include <glm/ext.hpp>
 
     #include <fstream>
+    #include <sstream>
     #include <iostream>
     #include <array>
     #include <set>
@@ -117,6 +118,7 @@
         #include "./TinyVk_Image.hpp"
         #include "./TinyVk_GraphicsRenderer.hpp"
         #include "./TinyVk_SwapchainRenderer.hpp"
+        #include "./TinyVk_ComputeRenderer.hpp"
         #include "./TinyVk_ResourceQueue.hpp"
         #include "./TinyVk_VertexMath.hpp"
     #pragma endregion

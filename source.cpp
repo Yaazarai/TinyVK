@@ -24,7 +24,7 @@ int32_t TINYVULKAN_WINDOWMAIN {
     TinyVkGraphicsPipeline pipeline(vkdevice, vertexDescription, defaultShaders, pushDescriptorLayouts, {}, false);
     TinyVkRenderContext renderContext(vkdevice, commandPool, pipeline);
     TinyVkSwapchainRenderer swapRenderer(renderContext, window, bufferingMode, TinyVkCommandPool::defaultCommandPoolSize);
-    //TinyVkComputeRender computeRenderer(renderContext, computeVertexDescription, computeDefaultShaders, computePushDescriptorLayouts, {}, false);
+    //TinyVkComputeRenderer computeRenderer(vkdevice, commandPool, {}, "", {}, {}, {});
 
     std::vector<TinyVkVertex> triangles = {
         TinyVkVertex({0.0f,0.0f}, {240.0f,135.0f,               1.0f}, {1.0f,0.0f,0.0f,1.0f}),

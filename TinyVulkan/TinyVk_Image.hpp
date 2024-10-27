@@ -99,7 +99,7 @@
 				if (vkCreateSemaphore(renderContext.vkdevice.GetLogicalDevice(), &semaphoreInfo, VK_NULL_HANDLE, &imageAvailable) != VK_SUCCESS ||
 					vkCreateSemaphore(renderContext.vkdevice.GetLogicalDevice(), &semaphoreInfo, VK_NULL_HANDLE, &imageFinished) != VK_SUCCESS ||
 					vkCreateFence(renderContext.vkdevice.GetLogicalDevice(), &fenceInfo, VK_NULL_HANDLE, &imageWaitable) != VK_SUCCESS)
-					throw TinyVkRuntimeError("TinyVulkan: Failed to create synchronization objects for a image renderer!");
+					throw TinyVkRuntimeError("TinyVulkan: Failed to create synchronization objects for TinyVkImage!");
 			}
 		public:
 			std::timed_mutex image_lock;
